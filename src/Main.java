@@ -1,4 +1,6 @@
+import java.io.IOException;
 import java.net.InetSocketAddress;
+import java.net.StandardSocketOptions;
 import java.nio.ByteBuffer;
 import java.nio.channels.*;
 import java.nio.charset.StandardCharsets;
@@ -7,192 +9,182 @@ import java.util.Iterator;
 public class Main {
 
     public static void main(String[] args) throws Exception {
-        // 1. Create Selector
+
+        // 1. Selector
         Selector selector = Selector.open();
+        int[] ports = {8080, 8081, 9090};
 
-        // 2. Create server
-        ServerSocketChannel server =
-                ServerSocketChannel.open();
+        for (int port : ports) {
+        try {
+                ServerSocketChannel server = ServerSocketChannel.open();
+                server.setOption(StandardSocketOptions.SO_REUSEADDR, true);
+                server.bind(new InetSocketAddress(port));
+                server.configureBlocking(false);
+                server.register(selector, SelectionKey.OP_ACCEPT);
+                System.out.println("Listening on port " + port);
+        } catch (IOException e) {
+                // port mchghoul: ma-n7bsouch serveur kaml
+                System.err.println("Cannot bind port " + port + ": " + e.getMessage());
+        }
+        }
 
-        // 3. Listen on port 8080
-        server.bind(new InetSocketAddress(8080));
-
-        // 4. Non-blocking
-        server.configureBlocking(false);
-
-        // 5. Watch for new clients
-        server.register(
-                selector,
-                SelectionKey.OP_ACCEPT
-        );
-
-        System.out.println("Server started on port 8080");
-
-        // 6. Main loop
+        // 3. Main loop: ma-kaytwqfch abadan
         while (true) {
+            try {
+                selector.select(1000);
 
-            // Wait for an event
-            selector.select();
+                Iterator<SelectionKey> iterator =
+                        selector.selectedKeys().iterator();
 
-            // Get events
-            Iterator<SelectionKey> iterator =
-                    selector.selectedKeys().iterator();
+                while (iterator.hasNext()) {
 
-            while (iterator.hasNext()) {
+                    SelectionKey key = iterator.next();
+                    iterator.remove();
 
-                SelectionKey key =
-                        iterator.next();
+                    // try/catch 3la kol client: ghalta wa7da ma-t9tlch serveur
+                    try {
 
-                // Remove event after taking it
-                iterator.remove();
+                        if (!key.isValid()) {
+                            continue;
+                        }
 
-                // =========================
-                // NEW CLIENT
-                // =========================
+                        // =========================
+                        // NEW CLIENT
+                        // =========================
+                        if (key.isAcceptable()) {
 
-                if (key.isAcceptable()) {
+                            ServerSocketChannel serverChannel =
+                                    (ServerSocketChannel) key.channel();
 
-                    ServerSocketChannel serverChannel =
-                            (ServerSocketChannel) key.channel();
+                            SocketChannel client = serverChannel.accept();
+                            if (client == null) {
+                                continue;
+                            }
 
-                    SocketChannel client =
-                            serverChannel.accept();
+                            client.configureBlocking(false);
 
-                    client.configureBlocking(false);
+                            SelectionKey clientKey =
+                                    client.register(selector, SelectionKey.OP_READ);
+                            clientKey.attach(new ClientConnection());
 
-                    // Tell selector to watch this client
-                    SelectionKey clientKey =
-                            client.register(
-                                    selector,
-                                    SelectionKey.OP_READ
-                            );
+                            System.out.println(
+                                    "Client connected: " + client.getRemoteAddress());
+                        }
 
-                    ClientConnection connection =
-                            new ClientConnection();
+                        // =========================
+                        // CLIENT SENT DATA
+                        // =========================
+                        else if (key.isReadable()) {
 
-                    clientKey.attach(connection);
+                            SocketChannel client = (SocketChannel) key.channel();
+                            ClientConnection connection =
+                                    (ClientConnection) key.attachment();
+                            ByteBuffer buffer = connection.requestBuffer;
 
-                    System.out.println(
-                            "Client connected: "
-                            + client.getRemoteAddress()
-                    );
-                }
+                            int bytesRead = client.read(buffer);
 
-                // =========================
-                // CLIENT SENT DATA
-                // =========================
+                            if (bytesRead == -1) {
+                                client.close();
+                                key.cancel();
+                                continue;
+                            }
 
-                else if (key.isReadable()) {
+                            buffer.flip();
 
-                    SocketChannel client =
-                            (SocketChannel) key.channel();
-
-                    ClientConnection connection =
-                            (ClientConnection) key.attachment();
-
-                    ByteBuffer buffer =
-                            connection.requestBuffer;
-
-                    int bytesRead =
-                            client.read(buffer);
-
-                    System.out.println(
-                            "Bytes received: " + bytesRead
-                    );
-
-                    if (bytesRead == -1) {
-                        client.close();
-                        continue;
-                    }
-
-                    buffer.flip();
-
-                    String request =
-                            StandardCharsets.UTF_8
-                                    .decode(buffer)
+                            // duplicate(): l'buffer l'asli ybqa saliim
+                            String request = StandardCharsets.UTF_8
+                                    .decode(buffer.duplicate())
                                     .toString();
-                        if (!request.contains("\r\n\r\n")) {
 
-                        System.out.println(
-                                "Request not complete yet..."
-                        );
+                            // Headers mazal ma-wslouch
+                            if (!request.contains("\r\n\r\n")) {
 
-                        buffer.compact();
+                                buffer.compact();
 
-                        continue;
+                                // Buffer 3amer w mazal ma-lqina fin-at l'headers => 413
+                                if (!buffer.hasRemaining()) {
+                                    connection.responseBuffer = StandardCharsets.UTF_8
+                                            .encode(ErrorPages.get(413).build());
+                                    buffer.clear();
+                                    key.interestOps(SelectionKey.OP_WRITE);
+                                } else {
+                                    System.out.println("Request not complete yet...");
+                                }
+                                continue;
+                            }
+
+                            HttpResponse httpResponse;
+
+                            try {
+                                HttpRequest httpRequest = HttpParser.parse(request);
+
+                                // Body mazal ma-wsl kaml
+                                if (!HttpParser.isBodyComplete(httpRequest)) {
+
+                                    buffer.compact();
+
+                                    if (!buffer.hasRemaining()) {
+                                        httpResponse = ErrorPages.get(413);
+                                        buffer.clear();
+                                        connection.responseBuffer = StandardCharsets.UTF_8
+                                                .encode(httpResponse.build());
+                                        key.interestOps(SelectionKey.OP_WRITE);
+                                    } else {
+                                        System.out.println("Body not complete yet...");
+                                    }
+                                    continue;
+                                }
+
+                                System.out.println("----- REQUEST -----");
+                                System.out.println(request);
+                                System.out.println("-------------------");
+
+                                httpResponse = Router.route(httpRequest);
+
+                            } catch (BadRequestException e) {
+                                httpResponse = ErrorPages.get(400);
+                            } catch (Exception e) {
+                                e.printStackTrace();
+                                httpResponse = ErrorPages.get(500);
+                            }
+
+                            connection.responseBuffer = StandardCharsets.UTF_8
+                                    .encode(httpResponse.build());
+
+                            buffer.clear();
+                            key.interestOps(SelectionKey.OP_WRITE);
                         }
 
+                        // =========================
+                        // WE CAN SEND DATA
+                        // =========================
+                        else if (key.isWritable()) {
 
-                        HttpRequest httpRequest =
-                                HttpParser.parse(request);
+                            SocketChannel client = (SocketChannel) key.channel();
+                            ClientConnection connection =
+                                    (ClientConnection) key.attachment();
+                            ByteBuffer response = connection.responseBuffer;
 
+                            client.write(response);
 
-                        if (!HttpParser.isBodyComplete(httpRequest)) {
-
-                        System.out.println(
-                                "Body not complete yet..."
-                        );
-
-                        buffer.compact();
-
-                        continue;
+                            if (!response.hasRemaining()) {
+                                key.interestOps(SelectionKey.OP_READ);
+                            }
                         }
 
-                    System.out.println("----- REQUEST -----");
-                    System.out.println(request);
-                    System.out.println("-------------------");
-
-                    // request complete
-                    // هنا غادي نحضرو response
-                
-
-                    String body = "Hello from LocalServer";
-
-                String response =
-                        "HTTP/1.1 200 OK\r\n" +
-                        "Content-Type: text/plain\r\n" +
-                        "Content-Length: " +
-                        body.getBytes(StandardCharsets.UTF_8).length +
-                        "\r\n" +
-                        "\r\n" +
-                        body;
-                    connection.responseBuffer =
-                        StandardCharsets.UTF_8.encode(response);
-
-                    key.interestOps(SelectionKey.OP_WRITE);
-
-               } else if (key.isWritable()) {
-
-                SocketChannel client =
-                        (SocketChannel) key.channel();
-
-                ClientConnection connection =
-                        (ClientConnection) key.attachment();
-
-                ByteBuffer response =
-                        connection.responseBuffer;
-
-                try {
-
-                        client.write(response);
-
-                        if (!response.hasRemaining()) {
-
-                        key.interestOps(
-                                SelectionKey.OP_READ
-                        );
+                    } catch (Exception e) {
+                        System.out.println("Client error: " + e.getMessage());
+                        try {
+                            key.channel().close();
+                        } catch (IOException ignored) {
                         }
-
-                } catch (java.io.IOException e) {
-
-                        System.out.println(
-                                "Client disconnected during write."
-                        );
-
-                        client.close();
                         key.cancel();
+                    }
                 }
-                }
+
+            } catch (Exception e) {
+                // Erreur f l'boucle nfsha: kanktbouha w kankmlou
+                System.err.println("Loop error: " + e);
             }
         }
     }

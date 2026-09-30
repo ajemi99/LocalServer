@@ -1,6 +1,6 @@
 import java.nio.charset.StandardCharsets;
-import java.util.HashMap;
 import java.util.Map;
+import java.util.TreeMap;
 
 public class HttpParser {
     
@@ -10,19 +10,39 @@ public class HttpParser {
 
         String requestLine =
                 getRequestLine(rawRequest);
+        if(requestLine == null || requestLine == null){
+            throw  new BadRequestException("Empty request line");
+        }
 
         String[] parts =
                 requestLine.split(" ");
+        if(parts.length != 3){
+            throw  new BadRequestException("Malformed request line");
+        }
 
-        request.method = parts[0];
-        request.path = parts[1];
-        request.version = parts[2];
+        String method = parts[0];
+        String path = parts[1];
+        String version = parts[2];
 
-        request.headers =
-                parseHeaders(rawRequest);
+        if (!method.matches("[A-Z]+")) {
+            throw new BadRequestException("Bad method");
+        }
+        if (!path.startsWith("/")) {
+            throw new BadRequestException("Bad path");
+        }
+        if (!version.equals("HTTP/1.1") && !version.equals("HTTP/1.0")) {
+            throw new BadRequestException("Bad HTTP version");
+        }
+        request.method = method;
+        request.path = path;
+        request.version = version;
+        request.headers = parseHeaders(rawRequest);
+        request.body =parseBody(rawRequest);
 
-        request.body =
-                parseBody(rawRequest);
+        // HTTP/1.1 kayt-lb header Host
+        if (version.equals("HTTP/1.1") && !request.headers.containsKey("Host")) {
+            throw new BadRequestException("Missing Host header");
+        }
 
         return request;
     }
@@ -39,8 +59,7 @@ public class HttpParser {
 
     public static Map<String, String> parseHeaders(String rawRequest) {
 
-        Map<String, String> headers =
-                new HashMap<>();
+        Map<String, String> headers = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
 
         String[] lines =
                 rawRequest.split("\r\n");
@@ -56,8 +75,8 @@ public class HttpParser {
             int colon =
                     line.indexOf(":");
 
-            if (colon == -1) {
-                continue;
+            if (colon <= 0) {
+                throw new BadRequestException("Malformed header: " + line);
             }
 
             String name =
@@ -86,16 +105,21 @@ public class HttpParser {
     }
 
     public static int getContentLength(HttpRequest request) {
-
-        String value =
-                request.headers.get("Content-Length");
-
+        String value = request.headers.get("Content-Length");
         if (value == null) {
             return 0;
         }
-
-        return Integer.parseInt(value);
+        try {
+            int n = Integer.parseInt(value);
+            if (n < 0) {
+                throw new BadRequestException("Negative Content-Length");
+            }
+            return n;
+        } catch (NumberFormatException e) {
+            throw new BadRequestException("Invalid Content-Length");
+        }
     }
+    
     public static boolean isBodyComplete(HttpRequest request) {
 
         int expected =
