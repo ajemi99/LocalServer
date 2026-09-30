@@ -7,7 +7,6 @@ import java.util.Iterator;
 public class Main {
 
     public static void main(String[] args) throws Exception {
-
         // 1. Create Selector
         Selector selector = Selector.open();
 
@@ -68,10 +67,10 @@ public class Main {
                                     SelectionKey.OP_READ
                             );
 
-                    ByteBuffer buffer =
-                            ByteBuffer.allocate(8192);
+                    ClientConnection connection =
+                            new ClientConnection();
 
-                    clientKey.attach(buffer);
+                    clientKey.attach(connection);
 
                     System.out.println(
                             "Client connected: "
@@ -86,17 +85,19 @@ public class Main {
                 else if (key.isReadable()) {
 
                     SocketChannel client =
-                                (SocketChannel) key.channel();
+                            (SocketChannel) key.channel();
 
-                        ByteBuffer buffer =
-                                (ByteBuffer) key.attachment();
+                    ClientConnection connection =
+                            (ClientConnection) key.attachment();
 
-                        int bytesRead =
-                                client.read(buffer);
+                    ByteBuffer buffer =
+                            connection.requestBuffer;
+
+                    int bytesRead =
+                            client.read(buffer);
 
                     System.out.println(
-                            "Bytes received: "
-                            + bytesRead
+                            "Bytes received: " + bytesRead
                     );
 
                     if (bytesRead == -1) {
@@ -110,28 +111,87 @@ public class Main {
                             StandardCharsets.UTF_8
                                     .decode(buffer)
                                     .toString();
+                        if (!request.contains("\r\n\r\n")) {
+
+                        System.out.println(
+                                "Request not complete yet..."
+                        );
+
+                        buffer.compact();
+
+                        continue;
+                        }
+
+
+                        HttpRequest httpRequest =
+                                HttpParser.parse(request);
+
+
+                        if (!HttpParser.isBodyComplete(httpRequest)) {
+
+                        System.out.println(
+                                "Body not complete yet..."
+                        );
+
+                        buffer.compact();
+
+                        continue;
+                        }
 
                     System.out.println("----- REQUEST -----");
                     System.out.println(request);
                     System.out.println("-------------------");
 
-                    buffer.clear();
+                    // request complete
+                    // هنا غادي نحضرو response
+                
 
                     String body = "Hello from LocalServer";
 
-            String response =
-                    "HTTP/1.1 200 OK\r\n" +
-                    "Content-Type: text/plain\r\n" +
-                    "Content-Length: " +
-                    body.getBytes(StandardCharsets.UTF_8).length +
-                    "\r\n" +
-                    "\r\n" +
-                    body;
+                String response =
+                        "HTTP/1.1 200 OK\r\n" +
+                        "Content-Type: text/plain\r\n" +
+                        "Content-Length: " +
+                        body.getBytes(StandardCharsets.UTF_8).length +
+                        "\r\n" +
+                        "\r\n" +
+                        body;
+                    connection.responseBuffer =
+                        StandardCharsets.UTF_8.encode(response);
 
-            ByteBuffer responseBuffer =
-                    StandardCharsets.UTF_8.encode(response);
+                    key.interestOps(SelectionKey.OP_WRITE);
 
-            client.write(responseBuffer);
+               } else if (key.isWritable()) {
+
+                SocketChannel client =
+                        (SocketChannel) key.channel();
+
+                ClientConnection connection =
+                        (ClientConnection) key.attachment();
+
+                ByteBuffer response =
+                        connection.responseBuffer;
+
+                try {
+
+                        client.write(response);
+
+                        if (!response.hasRemaining()) {
+
+                        key.interestOps(
+                                SelectionKey.OP_READ
+                        );
+                        }
+
+                } catch (java.io.IOException e) {
+
+                        System.out.println(
+                                "Client disconnected during write."
+                        );
+
+                        client.close();
+                        key.cancel();
+                }
                 }
             }
         }
