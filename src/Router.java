@@ -76,21 +76,114 @@ public class Router {
             return redirect(route.redirect);
         }
 
-        // 6. POST / DELETE : pas encore (étape 6)
-        if (!request.method.equals("GET")) {
-            return new HttpResponse("501 Not Implemented", "text/plain",
-                    "Not Implemented yet");
-        }
-
-        // 7. Fichier statique
+    // 6. Traitement selon la méthode HTTP
         try {
-            return serveStatic(path, rawPath, route, server);
+            if (request.method.equals("GET")) {
+                return serveStatic(path, rawPath, route, server);
+            } else if (request.method.equals("POST")) {
+                return handlePost(request, path, route, server);
+            } else if (request.method.equals("DELETE")) {
+                return handleDelete(path, route, server);
+            } else {
+                HttpResponse r = error(405, server);
+                r.extraHeaders = "Allow: " + String.join(", ", route.methods) + "\r\n";
+                return r;
+            }
         } catch (InvalidPathException e) {
             throw new BadRequestException("Invalid path");
         } catch (IOException e) {
             return error(500, server);
         }
     }
+
+    // =====================================================
+    // Gestion de la méthode POST
+    // =====================================================
+    private static HttpResponse handlePost(HttpRequest request, String path, RouteConfig route, ServerConfig server) throws IOException {
+        byte[] bodyBytes = request.body.getBytes(StandardCharsets.UTF_8);
+
+        // 1. Validation de clientMaxBodySize
+        if (bodyBytes.length > server.clientMaxBodySize) {
+            return error(413, server);
+        }
+
+        Path root = Path.of(route.root).toAbsolutePath().normalize();
+        String routePrefix = prefix(route.path);
+        String relative = routePrefix.equals("/") ? path : path.substring(routePrefix.length());
+        while (relative.startsWith("/")) {
+            relative = relative.substring(1);
+        }
+
+        Path target = root.resolve(relative).normalize();
+
+        // 2. Sécurité : vérification Path Traversal
+        if (!target.startsWith(root)) {
+            return error(403, server);
+        }
+
+        // Un POST ne peut pas être fait directement sur un dossier sans préciser de nom de fichier
+        if (Files.isDirectory(target) || path.endsWith("/")) {
+            return error(400, server);
+        }
+
+        boolean exists = Files.exists(target);
+
+        // Création des dossiers parents si nécessaire
+        if (target.getParent() != null && !Files.exists(target.getParent())) {
+            Files.createDirectories(target.getParent());
+        }
+
+        // Écriture des données dans le fichier
+        Files.write(target, bodyBytes);
+
+        if (!exists) {
+            HttpResponse response = new HttpResponse("201 Created", "text/plain; charset=UTF-8", "File created successfully\n");
+            response.extraHeaders = "Location: " + path + "\r\n";
+            return response;
+        } else {
+            return new HttpResponse("200 OK", "text/plain; charset=UTF-8", "File updated successfully\n");
+        }
+    }
+
+    // =====================================================
+    // Gestion de la méthode DELETE
+    // =====================================================
+    private static HttpResponse handleDelete(String path, RouteConfig route, ServerConfig server) throws IOException {
+        Path root = Path.of(route.root).toAbsolutePath().normalize();
+        String routePrefix = prefix(route.path);
+        String relative = routePrefix.equals("/") ? path : path.substring(routePrefix.length());
+        while (relative.startsWith("/")) {
+            relative = relative.substring(1);
+        }
+
+        Path target = root.resolve(relative).normalize();
+
+        // 1. Sécurité : vérification Path Traversal
+        if (!target.startsWith(root)) {
+            return error(403, server);
+        }
+
+        // 2. Vérification d'existence
+        if (!Files.exists(target)) {
+            return error(404, server);
+        }
+
+        // 3. Interdiction de supprimer des répertoires
+        if (Files.isDirectory(target)) {
+            return error(403, server);
+        }
+
+        // 4. Suppression du fichier
+        try {
+            Files.delete(target);
+            return new HttpResponse("200 OK", "text/html; charset=UTF-8",
+                    "<!DOCTYPE html><html><body><h1>File Deleted</h1><p>" 
+                    + escape(path) + "</p></body></html>");
+        } catch (IOException e) {
+            return error(500, server);
+        }
+    }
+    
 
     // =====================================================
     // Choix du serveur : port + header Host

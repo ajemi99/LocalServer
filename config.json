@@ -46,7 +46,7 @@
       "ports": [9090],
       "clientMaxBodySize": 2048,
       "routes": [
-        { "path": "/", "root": "www2", "index": "index.html" }
+        { "path": "/","methods": ["GET", "POST"], "root": "www2", "index": "index.html" }
       ]
     }
   ]
