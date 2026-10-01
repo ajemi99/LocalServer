@@ -1,0 +1,53 @@
+{
+  "servers": [
+    {
+      "host": "127.0.0.1",
+      "ports": [8080, 8081],
+      "serverName": "localhost",
+      "default": true,
+      "clientMaxBodySize": 1048576,
+      "errorPages": {
+        "400": "error_pages/400.html",
+        "403": "error_pages/403.html",
+        "404": "error_pages/404.html",
+        "405": "error_pages/405.html",
+        "413": "error_pages/413.html",
+        "500": "error_pages/500.html"
+      },
+      "routes": [
+        {
+          "path": "/",
+          "methods": ["GET"],
+          "root": "www",
+          "index": "index.html",
+          "directoryListing": false
+        },
+        {
+          "path": "/uploads",
+          "methods": ["GET", "POST", "DELETE"],
+          "root": "www/uploads",
+          "directoryListing": true
+        },
+        {
+          "path": "/old",
+          "methods": ["GET"],
+          "redirect": "/"
+        },
+        {
+          "path": "/cgi-bin",
+          "methods": ["GET", "POST"],
+          "root": "www/cgi-bin",
+          "cgi": { ".py": "python" }
+        }
+      ]
+    },
+    {
+      "host": "127.0.0.1",
+      "ports": [9090],
+      "clientMaxBodySize": 2048,
+      "routes": [
+        { "path": "/", "root": "www2", "index": "index.html" }
+      ]
+    }
+  ]
+}

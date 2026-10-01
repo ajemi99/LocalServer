@@ -4,6 +4,7 @@ public class ClientConnection {
 
     ByteBuffer requestBuffer;
     ByteBuffer responseBuffer;
+    int localPort;
 
     public ClientConnection() {
 
@@ -12,5 +13,6 @@ public class ClientConnection {
 
         responseBuffer =
                 ByteBuffer.allocate(8192);
+        
     }
 }
