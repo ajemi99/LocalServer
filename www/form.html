@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Test Formulaire CGI</title>
+</head>
+<body style="font-family: sans-serif; padding: 20px;">
+    <h2>Formulaire de test CGI (POST)</h2>
+    <form action="/cgi-bin/post_test.py" method="POST">
+        <label for="user">Nom d'utilisateur :</label><br>
+        <input type="text" id="user" name="user" value="Mounaim"><br><br>
+        
+        <label for="role">Rôle :</label><br>
+        <input type="text" id="role" name="role" value="Developer"><br><br>
+        
+        <button type="submit">Envoyer au script CGI</button>
+    </form>
+</body>
+</html>

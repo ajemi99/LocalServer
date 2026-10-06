@@ -76,10 +76,10 @@ public class Router {
             return redirect(route.redirect);
         }
 
-    // 6. Traitement selon la méthode HTTP
+        // 6. Traitement selon la méthode HTTP
         try {
             if (request.method.equals("GET")) {
-                return serveStatic(path, rawPath, route, server);
+                return serveStatic(request, path, rawPath, route, server);
             } else if (request.method.equals("POST")) {
                 return handlePost(request, path, route, server);
             } else if (request.method.equals("DELETE")) {
@@ -100,7 +100,7 @@ public class Router {
     // Gestion de la méthode POST
     // =====================================================
     private static HttpResponse handlePost(HttpRequest request, String path, RouteConfig route, ServerConfig server) throws IOException {
-        byte[] bodyBytes = request.body.getBytes(StandardCharsets.UTF_8);
+        byte[] bodyBytes = request.body != null ? request.body.getBytes(StandardCharsets.UTF_8) : new byte[0];
 
         // 1. Validation de clientMaxBodySize
         if (bodyBytes.length > server.clientMaxBodySize) {
@@ -121,7 +121,20 @@ public class Router {
             return error(403, server);
         }
 
-        // Un POST ne peut pas être fait directement sur un dossier sans préciser de nom de fichier
+        // 3. Exécution CGI si le fichier cible est un script CGI
+        if (Files.isRegularFile(target)) {
+            String fileName = target.getFileName().toString();
+            int dot = fileName.lastIndexOf('.');
+            if (dot != -1) {
+                String ext = fileName.substring(dot);
+                if (route.cgi != null && route.cgi.containsKey(ext)) {
+                    String interpreter = route.cgi.get(ext);
+                    return CgiHandler.execute(request, target, interpreter, server);
+                }
+            }
+        }
+
+        // Un POST standard (non CGI) ne peut pas être fait directement sur un dossier
         if (Files.isDirectory(target) || path.endsWith("/")) {
             return error(400, server);
         }
@@ -183,7 +196,6 @@ public class Router {
             return error(500, server);
         }
     }
-    
 
     // =====================================================
     // Choix du serveur : port + header Host
@@ -204,7 +216,7 @@ public class Router {
         if (host != null) {
             int colon = host.indexOf(':');
             if (colon != -1) {
-                host = host.substring(0, colon);   // "localhost:8080" -> "localhost"
+                host = host.substring(0, colon);
             }
             for (ServerConfig s : candidates) {
                 if (!s.serverName.isEmpty() && s.serverName.equalsIgnoreCase(host)) {
@@ -235,12 +247,10 @@ public class Router {
         return best;
     }
 
-    // "/uploads/" -> "/uploads"   ("/" reste "/")
     private static String prefix(String p) {
         return (p.length() > 1 && p.endsWith("/")) ? p.substring(0, p.length() - 1) : p;
     }
 
-    // "/uploads" correspond à "/uploads" et "/uploads/x", mais PAS à "/uploads2"
     private static boolean matches(String path, String routePath) {
         String p = prefix(routePath);
         if (p.equals("/")) {
@@ -250,15 +260,14 @@ public class Router {
     }
 
     // =====================================================
-    // Fichiers statiques
+    // Fichiers statiques et CGI
     // =====================================================
-    private static HttpResponse serveStatic(String path, String rawPath,
+    private static HttpResponse serveStatic(HttpRequest request, String path, String rawPath,
                                             RouteConfig route, ServerConfig server) throws IOException {
 
         Path root = Path.of(route.root).toAbsolutePath().normalize();
         String routePrefix = prefix(route.path);
 
-        // la partie du path après le préfixe de la route : "/uploads/a.txt" -> "a.txt"
         String relative = routePrefix.equals("/") ? path : path.substring(routePrefix.length());
         while (relative.startsWith("/")) {
             relative = relative.substring(1);
@@ -271,7 +280,7 @@ public class Router {
 
         Path target = root.resolve(relative).normalize();
 
-        // SÉCURITÉ : on ne sort jamais du dossier root (protège contre "../")
+        // SÉCURITÉ : protection contre "Path Traversal" (../)
         if (!target.startsWith(root)) {
             return error(403, server);
         }
@@ -280,9 +289,9 @@ public class Router {
             return error(404, server);
         }
 
+        // Cas dossier
         if (Files.isDirectory(target)) {
 
-            // "/uploads" -> redirige vers "/uploads/" (sinon les liens relatifs cassent)
             if (!rawPath.endsWith("/")) {
                 return redirect(rawPath + "/");
             }
@@ -290,6 +299,16 @@ public class Router {
             if (route.index != null) {
                 Path indexFile = target.resolve(route.index).normalize();
                 if (Files.isRegularFile(indexFile)) {
+                    // Vérification si le fichier index est un script CGI
+                    String fileName = indexFile.getFileName().toString();
+                    int dot = fileName.lastIndexOf('.');
+                    if (dot != -1) {
+                        String ext = fileName.substring(dot);
+                        if (route.cgi != null && route.cgi.containsKey(ext)) {
+                            String interpreter = route.cgi.get(ext);
+                            return CgiHandler.execute(request, indexFile, interpreter, server);
+                        }
+                    }
                     return serveFile(indexFile, server);
                 }
             }
@@ -301,7 +320,21 @@ public class Router {
             return error(403, server);
         }
 
-        return serveFile(target, server);
+        // Cas fichier régulier : vérification CGI
+        if (Files.isRegularFile(target)) {
+            String fileName = target.getFileName().toString();
+            int dot = fileName.lastIndexOf('.');
+            if (dot != -1) {
+                String ext = fileName.substring(dot);
+                if (route.cgi != null && route.cgi.containsKey(ext)) {
+                    String interpreter = route.cgi.get(ext);
+                    return CgiHandler.execute(request, target, interpreter, server);
+                }
+            }
+            return serveFile(target, server);
+        }
+
+        return error(403, server);
     }
 
     private static HttpResponse serveFile(Path file, ServerConfig server) throws IOException {
@@ -365,7 +398,6 @@ public class Router {
         return r;
     }
 
-    // Page d'erreur personnalisée (config) si elle existe, sinon page par défaut
     private static HttpResponse error(int code, ServerConfig server) {
         HttpResponse def = ErrorPages.get(code);
 
@@ -378,7 +410,6 @@ public class Router {
                             Files.readAllBytes(p));
                 }
             } catch (Exception ignored) {
-                // fichier illisible : on retombe sur la page par défaut
             }
         }
         return def;
