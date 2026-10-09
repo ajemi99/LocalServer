@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head><meta charset="UTF-8"><title>Upload</title></head>
+<body style="font-family:sans-serif;max-width:600px;margin:40px auto">
+  <h1>Envoyer un fichier</h1>
+
+  <!-- enctype="multipart/form-data" : le navigateur met le fichier dans une "enveloppe" multipart -->
+  <form action="/uploads/" method="POST" enctype="multipart/form-data">
+    <p><input type="file" name="fichier" multiple></p>
+    <p><input type="text" name="commentaire" placeholder="un champ texte (ignoré)"></p>
+    <p><button type="submit">Envoyer</button></p>
+  </form>
+
+  <p><a href="/uploads/">Voir le dossier uploads</a></p>
+</body>
+</html>

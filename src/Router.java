@@ -134,8 +134,16 @@ public class Router {
             }
         }
 
-        // Un POST standard (non CGI) ne peut pas être fait directement sur un dossier
-        if (Files.isDirectory(target) || path.endsWith("/")) {
+        // 4. Upload de fichier depuis un formulaire (multipart/form-data) vers un DOSSIER
+        String contentType = request.headers.get("Content-Type");
+        boolean isFolder = Files.isDirectory(target) || path.endsWith("/");
+        if (isFolder && contentType != null
+                && contentType.toLowerCase().startsWith("multipart/form-data")) {
+            return handleMultipart(request, contentType, target, path, server);
+        }
+
+        // Un POST standard (non CGI, non multipart) ne peut pas être fait directement sur un dossier
+        if (isFolder) {
             return error(400, server);
         }
 
@@ -151,11 +159,117 @@ public class Router {
 
         if (!exists) {
             HttpResponse response = new HttpResponse("201 Created", "text/plain; charset=UTF-8", "File created successfully\n");
-            response.extraHeaders = "Location: " + path + "\r\n";
+            response.extraHeaders = "Location: " + encodePath(path) + "\r\n";
             return response;
         } else {
             return new HttpResponse("200 OK", "text/plain; charset=UTF-8", "File updated successfully\n");
         }
+    }
+
+    // =====================================================
+    // Upload multipart : enregistre chaque fichier du formulaire dans le dossier cible
+    // =====================================================
+    private static HttpResponse handleMultipart(HttpRequest request, String contentType,
+                                               Path dir, String path, ServerConfig server) throws IOException {
+
+        if (!Files.isDirectory(dir)) {
+            return error(404, server);
+        }
+
+        String boundary = MultipartParser.boundaryOf(contentType);
+        if (boundary == null) {
+            throw new BadRequestException("Missing multipart boundary");
+        }
+
+        List<MultipartParser.Part> parts = MultipartParser.parse(request.body, boundary);
+
+        String base = encodePath(path.endsWith("/") ? path : path + "/");   // encodé : sûr dans un header et dans un lien
+        StringBuilder rows = new StringBuilder();
+        String firstLocation = null;
+        boolean created = false;
+        int count = 0;
+
+        for (MultipartParser.Part part : parts) {
+
+            // Les champs de texte du formulaire (sans fichier) sont ignorés ;
+            // un champ fichier laissé vide par le navigateur a filename="" : ignoré aussi.
+            if (part.filename == null || part.filename.isEmpty()) {
+                continue;
+            }
+
+            String name = safeFileName(part.filename);
+            Path dest = dir.resolve(name).normalize();
+
+            // Ceinture et bretelles : on ne sort jamais du dossier, et on n'écrase pas un dossier
+            if (!dest.startsWith(dir) || Files.isDirectory(dest)) {
+                return error(403, server);
+            }
+
+            boolean existed = Files.exists(dest);
+            Files.write(dest, part.data);
+            if (!existed) created = true;
+            count++;
+
+            String encoded = URLEncoder.encode(name, StandardCharsets.UTF_8).replace("+", "%20");
+            if (firstLocation == null) firstLocation = base + encoded;
+
+            rows.append("<li><a href=\"").append(base).append(encoded).append("\">")
+                .append(escape(name)).append("</a> (").append(part.data.length).append(" octets)</li>");
+        }
+
+        if (count == 0) {
+            throw new BadRequestException("No file in upload");
+        }
+
+        String html = "<!DOCTYPE html><html><head><meta charset=\"UTF-8\"><title>Upload</title></head>"
+                + "<body style=\"font-family:sans-serif\"><h1>Upload termin\u00e9</h1><ul>" + rows
+                + "</ul><p><a href=\"" + base + "\">Voir le dossier</a></p></body></html>";
+
+        HttpResponse r = new HttpResponse(created ? "201 Created" : "200 OK", "text/html; charset=UTF-8", html);
+        r.extraHeaders = "Location: " + firstLocation + "\r\n";
+        return r;
+    }
+
+    // "/mon dossier/a\r\nb" -> "/mon%20dossier/a%0D%0Ab"  : un chemin décodé ne doit JAMAIS aller tel quel dans un header
+    static String encodePath(String p) {
+        String[] segments = p.split("/", -1);
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < segments.length; i++) {
+            if (i > 0) sb.append('/');
+            sb.append(URLEncoder.encode(segments[i], StandardCharsets.UTF_8).replace("+", "%20"));
+        }
+        return sb.toString();
+    }
+
+    // Nom de fichier reçu du client = DONNÉE NON FIABLE. On le nettoie avant de s'en servir.
+    //   "../../etc/x"  -> "x"        "a<b>.txt" -> "a_b_.txt"        "CON.txt" -> "_CON.txt"
+    static String safeFileName(String raw) {
+        String n = raw;
+
+        // Garder uniquement le dernier morceau (certains navigateurs envoient C:\dossier\photo.png)
+        int slash = Math.max(n.lastIndexOf('/'), n.lastIndexOf('\\'));
+        if (slash >= 0) n = n.substring(slash + 1);
+
+        // Caractères de contrôle et caractères interdits sous Windows -> "_"
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < n.length(); i++) {
+            char c = n.charAt(i);
+            sb.append((c < 0x20 || c == 0x7f || "<>:\"|?*".indexOf(c) >= 0) ? '_' : c);
+        }
+        n = sb.toString().trim();
+
+        // Pas de points au début (".." , ".htaccess") ni de points/espaces à la fin (Windows les retire)
+        while (n.startsWith(".")) n = n.substring(1);
+        while (n.endsWith(".") || n.endsWith(" ")) n = n.substring(0, n.length() - 1);
+
+        if (n.length() > 200) n = n.substring(0, 200);
+        if (n.isEmpty()) n = "upload.bin";
+
+        // Noms réservés de Windows (CON, NUL, COM1...) : "CON.txt" ouvrirait un périphérique, pas un fichier
+        String stem = n.contains(".") ? n.substring(0, n.indexOf('.')) : n;
+        if (stem.toUpperCase().matches("CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9]")) n = "_" + n;
+
+        return n;
     }
 
     // =====================================================
