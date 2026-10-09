@@ -100,7 +100,7 @@ public class Router {
     // Gestion de la méthode POST
     // =====================================================
     private static HttpResponse handlePost(HttpRequest request, String path, RouteConfig route, ServerConfig server) throws IOException {
-        byte[] bodyBytes = request.body != null ? request.body.getBytes(StandardCharsets.UTF_8) : new byte[0];
+        byte[] bodyBytes = request.body != null ? request.body : new byte[0];
 
         // 1. Validation de clientMaxBodySize
         if (bodyBytes.length > server.clientMaxBodySize) {
@@ -200,7 +200,7 @@ public class Router {
     // =====================================================
     // Choix du serveur : port + header Host
     // =====================================================
-    private static ServerConfig selectServer(HttpRequest request, int port, List<ServerConfig> servers) {
+    static ServerConfig selectServer(HttpRequest request, int port, List<ServerConfig> servers) {
 
         List<ServerConfig> candidates = new ArrayList<>();
         for (ServerConfig s : servers) {
@@ -398,7 +398,7 @@ public class Router {
         return r;
     }
 
-    private static HttpResponse error(int code, ServerConfig server) {
+    static HttpResponse error(int code, ServerConfig server) {
         HttpResponse def = ErrorPages.get(code);
 
         String file = server.errorPages.get(code);

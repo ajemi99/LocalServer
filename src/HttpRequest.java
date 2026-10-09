@@ -8,5 +8,6 @@ public class HttpRequest {
 
     Map<String, String> headers;
 
-    String body;
+    // Octets bruts, jamais convertis en texte (sinon les fichiers binaires sont abîmés)
+    byte[] body = new byte[0];
 }
