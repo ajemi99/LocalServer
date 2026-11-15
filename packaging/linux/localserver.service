@@ -1,0 +1,24 @@
+[Unit]
+Description=LocalServer HTTP server (rootless user service)
+After=network.target
+
+[Service]
+Type=simple
+
+# The service runs as the user, from a per-user installation. No root, no PID file.
+ExecStart=/usr/bin/java -jar %h/.local/share/localserver/localserver.jar --config %h/.config/localserver/server.json --foreground
+WorkingDirectory=%h/.local/share/localserver
+
+Restart=on-failure
+RestartSec=2
+
+# Basic hardening for a user service.
+NoNewPrivileges=yes
+PrivateTmp=yes
+
+# LocalServer stops when the JVM receives SIGTERM (see ShutdownHandler).
+KillSignal=SIGTERM
+TimeoutStopSec=15
+
+[Install]
+WantedBy=default.target

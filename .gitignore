@@ -1,0 +1,19 @@
+# Build output
+target/
+build/
+*.class
+
+# IDE/editor files
+.idea/
+.vscode/
+*.iml
+
+# Runtime logs and data
+*.log
+logs/
+sessions/
+www/uploads/*
+!www/uploads/.gitkeep
+
+# OS files
+.DS_Store
