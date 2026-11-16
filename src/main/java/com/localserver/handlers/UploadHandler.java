@@ -28,12 +28,12 @@ public final class UploadHandler {
     // POST
     // =====================================================
     public static HttpResponse handlePost(HttpRequest request, String path, String relative,
-                                          RouteConfig route, ServerConfig server) throws IOException {
+            RouteConfig route, ServerConfig server) throws IOException {
         byte[] bodyBytes = request.body != null ? request.body : new byte[0];
 
         // 1. Validate clientMaxBodySize
         if (bodyBytes.length > server.clientMaxBodySize) {
-            return ErrorPages.get(413, server);
+            return ErrorPages.get(Constants.Status.PAYLOAD_TOO_LARGE, server);
         }
 
         Path root = server.resolvePath(route.root);
@@ -41,7 +41,7 @@ public final class UploadHandler {
 
         // 2. SECURITY: path traversal check
         if (!target.startsWith(root)) {
-            return ErrorPages.get(403, server);
+            return ErrorPages.get(Constants.Status.FORBIDDEN, server);
         }
 
         // 3. Run CGI if the target file is a CGI script
@@ -67,7 +67,7 @@ public final class UploadHandler {
 
         // A standard POST (non-CGI, non-multipart) cannot target a directory
         if (isFolder) {
-            return ErrorPages.get(400, server);
+            return ErrorPages.get(Constants.Status.BAD_REQUEST, server);
         }
 
         boolean exists = Files.exists(target);
@@ -81,11 +81,13 @@ public final class UploadHandler {
         Files.write(target, bodyBytes);
 
         if (!exists) {
-            HttpResponse response = new HttpResponse(Constants.Http.CREATED_STATUS, Constants.Http.CONTENT_TYPE_TEXT, "File created successfully\n");
+            HttpResponse response = new HttpResponse(Constants.Http.CREATED_STATUS, Constants.Http.CONTENT_TYPE_TEXT,
+                    "File created successfully\n");
             response.extraHeaders = Constants.Http.HEADER_LOCATION + ": " + encodePath(path) + Constants.Http.CRLF;
             return response;
         } else {
-            return new HttpResponse(Constants.Http.DEFAULT_STATUS, Constants.Http.CONTENT_TYPE_TEXT, "File updated successfully\n");
+            return new HttpResponse(Constants.Http.DEFAULT_STATUS, Constants.Http.CONTENT_TYPE_TEXT,
+                    "File updated successfully\n");
         }
     }
 
@@ -93,10 +95,10 @@ public final class UploadHandler {
     // Multipart upload: save each file of the form into the target directory
     // =====================================================
     private static HttpResponse handleMultipart(HttpRequest request, String contentType,
-                                                Path dir, String path, ServerConfig server) throws IOException {
+            Path dir, String path, ServerConfig server) throws IOException {
 
         if (!Files.isDirectory(dir)) {
-            return ErrorPages.get(404, server);
+            return ErrorPages.get(Constants.Status.NOT_FOUND, server);
         }
 
         String boundary = MultipartParser.boundaryOf(contentType);
@@ -106,7 +108,7 @@ public final class UploadHandler {
 
         List<MultipartParser.Part> parts = MultipartParser.parse(request.body, boundary);
 
-        String base = encodePath(path.endsWith("/") ? path : path + "/");   // safe in a header and a link
+        String base = encodePath(path.endsWith("/") ? path : path + "/"); // safe in a header and a link
         StringBuilder rows = new StringBuilder();
         String firstLocation = null;
         boolean created = false;
@@ -125,19 +127,21 @@ public final class UploadHandler {
 
             // Never leave the directory, and never overwrite a directory
             if (!dest.startsWith(dir) || Files.isDirectory(dest)) {
-                return ErrorPages.get(403, server);
+                return ErrorPages.get(Constants.Status.FORBIDDEN, server);
             }
 
             boolean existed = Files.exists(dest);
             Files.write(dest, part.data);
-            if (!existed) created = true;
+            if (!existed)
+                created = true;
             count++;
 
             String encoded = URLEncoder.encode(name, StandardCharsets.UTF_8).replace("+", "%20");
-            if (firstLocation == null) firstLocation = base + encoded;
+            if (firstLocation == null)
+                firstLocation = base + encoded;
 
             rows.append("<li><a href=\"").append(base).append(encoded).append("\">")
-                .append(escape(name)).append("</a> (").append(part.data.length).append(" octets)</li>");
+                    .append(escape(name)).append("</a> (").append(part.data.length).append(" octets)</li>");
         }
 
         if (count == 0) {
@@ -148,7 +152,8 @@ public final class UploadHandler {
                 + "<body style=\"font-family:sans-serif\"><h1>Upload termin\u00e9</h1><ul>" + rows
                 + "</ul><p><a href=\"" + base + "\">Voir le dossier</a></p></body></html>";
 
-        HttpResponse r = new HttpResponse(created ? Constants.Http.CREATED_STATUS : Constants.Http.DEFAULT_STATUS, Constants.Http.CONTENT_TYPE_HTML, html);
+        HttpResponse r = new HttpResponse(created ? Constants.Http.CREATED_STATUS : Constants.Http.DEFAULT_STATUS,
+                Constants.Http.CONTENT_TYPE_HTML, html);
         r.extraHeaders = Constants.Http.HEADER_LOCATION + ": " + firstLocation + Constants.Http.CRLF;
         return r;
     }
@@ -159,20 +164,22 @@ public final class UploadHandler {
         String[] segments = p.split("/", -1);
         StringBuilder sb = new StringBuilder();
         for (int i = 0; i < segments.length; i++) {
-            if (i > 0) sb.append('/');
+            if (i > 0)
+                sb.append('/');
             sb.append(URLEncoder.encode(segments[i], StandardCharsets.UTF_8).replace("+", "%20"));
         }
         return sb.toString();
     }
 
     // A client filename is UNTRUSTED DATA. Clean it before using it.
-    //   "../../etc/x"  -> "x"        "a<b>.txt" -> "a_b_.txt"        "CON.txt" -> "_CON.txt"
+    // "../../etc/x" -> "x" "a<b>.txt" -> "a_b_.txt" "CON.txt" -> "_CON.txt"
     public static String safeFileName(String raw) {
         String n = raw;
 
         // Keep only the last component (some browsers send C:\folder\photo.png)
         int slash = Math.max(n.lastIndexOf('/'), n.lastIndexOf('\\'));
-        if (slash >= 0) n = n.substring(slash + 1);
+        if (slash >= 0)
+            n = n.substring(slash + 1);
 
         // Control and forbidden Windows characters -> "_"
         StringBuilder sb = new StringBuilder();
@@ -182,16 +189,22 @@ public final class UploadHandler {
         }
         n = sb.toString().trim();
 
-        // No leading dots ("..", ".htaccess") or trailing dots/spaces (Windows removes them)
-        while (n.startsWith(".")) n = n.substring(1);
-        while (n.endsWith(".") || n.endsWith(" ")) n = n.substring(0, n.length() - 1);
+        // No leading dots ("..", ".htaccess") or trailing dots/spaces (Windows removes
+        // them)
+        while (n.startsWith("."))
+            n = n.substring(1);
+        while (n.endsWith(".") || n.endsWith(" "))
+            n = n.substring(0, n.length() - 1);
 
-        if (n.length() > Constants.Upload.MAX_FILENAME_LENGTH) n = n.substring(0, Constants.Upload.MAX_FILENAME_LENGTH);
-        if (n.isEmpty()) n = Constants.Upload.DEFAULT_FILENAME;
+        if (n.length() > Constants.Upload.MAX_FILENAME_LENGTH)
+            n = n.substring(0, Constants.Upload.MAX_FILENAME_LENGTH);
+        if (n.isEmpty())
+            n = Constants.Upload.DEFAULT_FILENAME;
 
         // Windows reserved names (CON, NUL, COM1...): "CON.txt" would open a device
         String stem = n.contains(".") ? n.substring(0, n.indexOf('.')) : n;
-        if (stem.toUpperCase().matches("CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9]")) n = "_" + n;
+        if (stem.toUpperCase().matches("CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9]"))
+            n = "_" + n;
 
         return n;
     }
@@ -200,34 +213,34 @@ public final class UploadHandler {
     // DELETE
     // =====================================================
     public static HttpResponse handleDelete(String path, String relative,
-                                            RouteConfig route, ServerConfig server) throws IOException {
+            RouteConfig route, ServerConfig server) throws IOException {
         Path root = server.resolvePath(route.root);
         Path target = root.resolve(relative).normalize();
 
         // 1. SECURITY: path traversal check
         if (!target.startsWith(root)) {
-            return ErrorPages.get(403, server);
+            return ErrorPages.get(Constants.Status.FORBIDDEN, server);
         }
 
         // 2. Existence check
         if (!Files.exists(target)) {
-            return ErrorPages.get(404, server);
+            return ErrorPages.get(Constants.Status.NOT_FOUND, server);
         }
 
         // 3. Directories cannot be deleted
         if (Files.isDirectory(target)) {
-            return ErrorPages.get(403, server);
+            return ErrorPages.get(Constants.Status.FORBIDDEN, server);
         }
 
         // 4. Delete the file
-            try {
-                Files.delete(target);
-                return new HttpResponse(Constants.Http.DEFAULT_STATUS, Constants.Http.CONTENT_TYPE_HTML,
-                        "<!DOCTYPE html><html><body><h1>File Deleted</h1><p>"
-                        + escape(path) + "</p></body></html>");
-            } catch (IOException e) {
-                return ErrorPages.get(500, server);
-            }
+        try {
+            Files.delete(target);
+            return new HttpResponse(Constants.Http.DEFAULT_STATUS, Constants.Http.CONTENT_TYPE_HTML,
+                    "<!DOCTYPE html><html><body><h1>File Deleted</h1><p>"
+                            + escape(path) + "</p></body></html>");
+        } catch (IOException e) {
+            return ErrorPages.get(Constants.Status.INTERNAL_SERVER_ERROR, server);
+        }
     }
 
     private static String escape(String s) {

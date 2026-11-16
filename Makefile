@@ -13,9 +13,6 @@ JAVAC   ?= javac
 # Use rootless Maven wrapper (downloads Maven to ~/.m2/wrapper/dists/ when needed)
 MVN     ?= ./mvnw
 FIND    ?= find
-# CONFIG  ?= config/server.json
-HOST    ?= 127.0.0.1
-PORT    ?= 8080
 
 JAR     := target/localserver-1.0.0-SNAPSHOT.jar
 SRC_JAVA := $(shell $(FIND) src/main/java -name '*.java')
@@ -36,8 +33,8 @@ build-javac:
 run-bg: $(JAR)
 	$(JAVA) -jar $(JAR) --config $(CONFIG)
 
-run-fg: $(JAR)
-	$(JAVA) -jar $(JAR) --config $(CONFIG) --foreground
+run-fg: clean $(JAR)
+	$(JAVA) -jar $(JAR) --config $(LOCALSERVER_CONFIG_FILE) --foreground
 
 test:
 	$(MVN) test

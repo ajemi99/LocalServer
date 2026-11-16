@@ -19,33 +19,27 @@ public final class Main {
         // Debug(start)
         System.out.println("entry point:" + Arrays.toString(args));
         // Debug(end)
-        
-        CommandParser.Command command;
-        try {
-            command = CommandParser.parse(args);
-        } catch (IllegalArgumentException e) {
-            System.err.println(e.getMessage());
-            CommandParser.printUsage(System.err);
-            return;
-        }
 
-        ServerRuntime runtime;
         try {
-            runtime = new ServerRuntime(command.configPath());
+            // parse the command line args
+            CommandParser.Command command = CommandParser.parse(args);
+
+            ServerRuntime runtime = new ServerRuntime(command.configPath());
+
+            // setting up the server
+            ShutdownHandler shutdownHandler = new ShutdownHandler(runtime);
+            shutdownHandler.register();
+
+            // running the server
+            try {
+                runtime.start();
+            } finally {
+                shutdownHandler.unregister();
+            }
+
         } catch (Exception e) {
-            System.err.println("Config error (" + command.configPath() + "): " + e.getMessage());
-            return;
-        }
-
-        ShutdownHandler shutdownHandler = new ShutdownHandler(runtime);
-        shutdownHandler.register();
-
-        try {
-            runtime.start();
-        } catch (Exception e) {
-            System.err.println("Server error: " + e.getMessage());
-        } finally {
-            shutdownHandler.unregister();
+            System.err.println("LocalServer encountered an error:");
+            e.printStackTrace();
         }
     }
 }
