@@ -1,5 +1,7 @@
 package com.localserver.runtime;
 
+import com.localserver.constants.Constants;
+
 /**
  * Connects JVM shutdown signals (SIGTERM, Ctrl-C) to the runtime lifecycle.
  * Under a systemd user service this is the hook used for "systemctl --user stop".
@@ -19,9 +21,9 @@ public final class ShutdownHandler {
         }
 
         hook = new Thread(() -> {
-            System.out.println("Stopping LocalServer...");
+            System.out.println(Constants.Shutdown.MESSAGE);
             runtime.stop();
-        }, "localserver-shutdown");
+        }, Constants.Shutdown.THREAD_NAME);
 
         Runtime.getRuntime().addShutdownHook(hook);
     }

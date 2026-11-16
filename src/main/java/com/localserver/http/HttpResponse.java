@@ -2,6 +2,8 @@ package com.localserver.http;
 
 import java.nio.charset.StandardCharsets;
 
+import com.localserver.constants.Constants;
+
 public class HttpResponse {
 
     public String status;
@@ -11,7 +13,7 @@ public class HttpResponse {
 
     // For text (ErrorPages, etc.)
     public HttpResponse(String status, String contentType, String body) {
-        this(status, contentType, body.getBytes(StandardCharsets.UTF_8));
+        this(status, contentType, body.getBytes(Constants.Http.UTF_8));
     }
 
     // For bytes (files, images...)
@@ -23,11 +25,11 @@ public class HttpResponse {
 
     // Builds the complete HTTP response: text headers + raw body bytes.
     public byte[] build() {
-        String head = "HTTP/1.1 " + status + "\r\n"
-                + "Content-Type: " + contentType + "\r\n"
-                + "Content-Length: " + body.length + "\r\n"
+        String head = Constants.Http.VERSION_1_1 + " " + status + Constants.Http.CRLF
+                + Constants.Http.HEADER_CONTENT_TYPE + ": " + contentType + Constants.Http.CRLF
+                + Constants.Http.HEADER_CONTENT_LENGTH + ": " + body.length + Constants.Http.CRLF
                 + extraHeaders
-                + "\r\n";
+                + Constants.Http.CRLF;
 
         byte[] headBytes = head.getBytes(StandardCharsets.UTF_8);
         byte[] all = new byte[headBytes.length + body.length];
@@ -42,10 +44,10 @@ public class HttpResponse {
      */
     public static HttpResponse redirect(String location) {
         String safe = escape(location);
-        HttpResponse response = new HttpResponse("301 Moved Permanently", "text/html; charset=UTF-8",
+        HttpResponse response = new HttpResponse(Constants.Http.REDIRECT_STATUS, Constants.Http.CONTENT_TYPE_HTML,
                 "<html><body>Moved to <a href=\"" + safe + "\">"
                         + safe + "</a></body></html>");
-        response.extraHeaders = "Location: " + location + "\r\n";
+        response.extraHeaders = Constants.Http.HEADER_LOCATION + ": " + location + Constants.Http.CRLF;
         return response;
     }
 

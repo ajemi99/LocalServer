@@ -8,6 +8,7 @@ import com.localserver.http.BadRequestException;
 import com.localserver.http.ErrorPages;
 import com.localserver.http.HttpRequest;
 import com.localserver.http.HttpResponse;
+import com.localserver.constants.Constants;
 
 import java.io.IOException;
 import java.net.URLDecoder;
@@ -57,7 +58,7 @@ public class Router {
         // 4. Is the method allowed?
         if (!route.methods.contains(request.method)) {
             HttpResponse r = ErrorPages.get(405, server);
-            r.extraHeaders = "Allow: " + String.join(", ", route.methods) + "\r\n";
+            r.extraHeaders = Constants.Http.HEADER_ALLOW + ": " + String.join(", ", route.methods) + Constants.Http.CRLF;
             return r;
         }
 
@@ -69,15 +70,15 @@ public class Router {
         // 6. Dispatch according to the HTTP method
         String relative = Route.relative(path, route.path);
         try {
-            if (request.method.equals("GET")) {
+            if (request.method.equals(Constants.Http.METHOD_GET)) {
                 return StaticFileHandler.handle(request, path, rawPath, relative, route, server);
-            } else if (request.method.equals("POST")) {
+            } else if (request.method.equals(Constants.Http.METHOD_POST)) {
                 return UploadHandler.handlePost(request, path, relative, route, server);
-            } else if (request.method.equals("DELETE")) {
+            } else if (request.method.equals(Constants.Http.METHOD_DELETE)) {
                 return UploadHandler.handleDelete(path, relative, route, server);
             } else {
                 HttpResponse r = ErrorPages.get(405, server);
-                r.extraHeaders = "Allow: " + String.join(", ", route.methods) + "\r\n";
+                r.extraHeaders = Constants.Http.HEADER_ALLOW + ": " + String.join(", ", route.methods) + Constants.Http.CRLF;
                 return r;
             }
         } catch (InvalidPathException e) {

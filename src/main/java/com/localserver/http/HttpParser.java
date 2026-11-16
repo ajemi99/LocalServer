@@ -4,6 +4,8 @@ import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.TreeMap;
 
+import com.localserver.constants.Constants;
+
 public class HttpParser {
     
     // Cherche la fin des headers (\r\n\r\n) dans les OCTETS. Retourne l'index, ou -1 si pas encore arrivée.
@@ -30,7 +32,7 @@ public class HttpParser {
         }
 
         // Seuls les headers sont du texte. ISO_8859_1 = 1 octet -> 1 caractère, sans jamais rien casser.
-        String rawRequest = new String(raw, 0, headerEnd, StandardCharsets.ISO_8859_1) + "\r\n";
+        String rawRequest = new String(raw, 0, headerEnd, Constants.Http.ISO_8859_1) + Constants.Http.CRLF;
 
         HttpRequest request = parse(rawRequest);
 
@@ -66,7 +68,7 @@ public class HttpParser {
         if (!path.startsWith("/")) {
             throw new BadRequestException("Bad path");
         }
-        if (!version.equals("HTTP/1.1") && !version.equals("HTTP/1.0")) {
+        if (!version.equals(Constants.Http.VERSION_1_1) && !version.equals(Constants.Http.VERSION_1_0)) {
             throw new BadRequestException("Bad HTTP version");
         }
         request.method = method;
@@ -75,7 +77,7 @@ public class HttpParser {
         request.headers = parseHeaders(rawRequest);
 
         // HTTP/1.1 kayt-lb header Host
-        if (version.equals("HTTP/1.1") && !request.headers.containsKey("Host")) {
+        if (version.equals(Constants.Http.VERSION_1_1) && !request.headers.containsKey(Constants.Http.HEADER_HOST)) {
             throw new BadRequestException("Missing Host header");
         }
 
@@ -83,7 +85,7 @@ public class HttpParser {
     }
     public static String getRequestLine(String rawRequest) {
         
-        int endOfLine = rawRequest.indexOf("\r\n");
+        int endOfLine = rawRequest.indexOf(Constants.Http.CRLF);
 
         if (endOfLine == -1) {
             return null;
@@ -97,7 +99,7 @@ public class HttpParser {
         Map<String, String> headers = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
 
         String[] lines =
-                rawRequest.split("\r\n");
+                rawRequest.split(Constants.Http.CRLF);
 
         for (int i = 1; i < lines.length; i++) {
 
@@ -127,7 +129,7 @@ public class HttpParser {
     }
 
     public static int getContentLength(HttpRequest request) {
-        String value = request.headers.get("Content-Length");
+        String value = request.headers.get(Constants.Http.HEADER_CONTENT_LENGTH);
         if (value == null) {
             return 0;
         }

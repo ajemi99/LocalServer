@@ -3,6 +3,8 @@ package com.localserver.cli;
 import java.io.PrintStream;
 import java.util.Set;
 
+import com.localserver.constants.Constants;
+
 /**
  * Parses command-line arguments. Only {@code start} can currently work; the
  * future {@code stop}/{@code status} commands are recognised but rejected until
@@ -10,9 +12,9 @@ import java.util.Set;
  */
 public final class CommandParser {
 
-    public static final String DEFAULT_CONFIG = "config/server.json";
+    public static final String DEFAULT_CONFIG = Constants.Cli.DEFAULT_CONFIG;
 
-    private static final Set<String> COMMANDS = Set.of("start", "stop", "status");
+    private static final Set<String> COMMANDS = Constants.Cli.COMMANDS;
 
     private CommandParser() {
     }
@@ -21,7 +23,8 @@ public final class CommandParser {
     }
 
     public static Command parse(String[] args) {
-        String command = "start";
+
+        String command = Constants.Cli.DEFAULT_COMMAND;
         String configPath = DEFAULT_CONFIG;
         boolean configSet = false;
         boolean foreground = false;
@@ -34,6 +37,9 @@ public final class CommandParser {
 
         for (; index < args.length; index++) {
             String arg = args[index];
+            // //Debug(start)
+            // System.out.println("" + arg);
+            // //Debug(end)
 
             switch (arg) {
                 case "--config" -> {

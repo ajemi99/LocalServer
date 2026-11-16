@@ -7,6 +7,7 @@ import com.localserver.http.ErrorPages;
 import com.localserver.http.HttpRequest;
 import com.localserver.http.HttpResponse;
 import com.localserver.http.MultipartParser;
+import com.localserver.constants.Constants;
 
 import java.io.IOException;
 import java.net.URLEncoder;
@@ -57,10 +58,10 @@ public final class UploadHandler {
         }
 
         // 4. Form file upload (multipart/form-data) to a DIRECTORY
-        String contentType = request.headers.get("Content-Type");
+        String contentType = request.headers.get(Constants.Http.HEADER_CONTENT_TYPE);
         boolean isFolder = Files.isDirectory(target) || path.endsWith("/");
         if (isFolder && contentType != null
-                && contentType.toLowerCase().startsWith("multipart/form-data")) {
+                && contentType.toLowerCase().startsWith(Constants.Http.CONTENT_TYPE_MULTIPART_FORM_DATA)) {
             return handleMultipart(request, contentType, target, path, server);
         }
 
@@ -80,11 +81,11 @@ public final class UploadHandler {
         Files.write(target, bodyBytes);
 
         if (!exists) {
-            HttpResponse response = new HttpResponse("201 Created", "text/plain; charset=UTF-8", "File created successfully\n");
-            response.extraHeaders = "Location: " + encodePath(path) + "\r\n";
+            HttpResponse response = new HttpResponse(Constants.Http.CREATED_STATUS, Constants.Http.CONTENT_TYPE_TEXT, "File created successfully\n");
+            response.extraHeaders = Constants.Http.HEADER_LOCATION + ": " + encodePath(path) + Constants.Http.CRLF;
             return response;
         } else {
-            return new HttpResponse("200 OK", "text/plain; charset=UTF-8", "File updated successfully\n");
+            return new HttpResponse(Constants.Http.DEFAULT_STATUS, Constants.Http.CONTENT_TYPE_TEXT, "File updated successfully\n");
         }
     }
 
@@ -147,8 +148,8 @@ public final class UploadHandler {
                 + "<body style=\"font-family:sans-serif\"><h1>Upload termin\u00e9</h1><ul>" + rows
                 + "</ul><p><a href=\"" + base + "\">Voir le dossier</a></p></body></html>";
 
-        HttpResponse r = new HttpResponse(created ? "201 Created" : "200 OK", "text/html; charset=UTF-8", html);
-        r.extraHeaders = "Location: " + firstLocation + "\r\n";
+        HttpResponse r = new HttpResponse(created ? Constants.Http.CREATED_STATUS : Constants.Http.DEFAULT_STATUS, Constants.Http.CONTENT_TYPE_HTML, html);
+        r.extraHeaders = Constants.Http.HEADER_LOCATION + ": " + firstLocation + Constants.Http.CRLF;
         return r;
     }
 
@@ -185,8 +186,8 @@ public final class UploadHandler {
         while (n.startsWith(".")) n = n.substring(1);
         while (n.endsWith(".") || n.endsWith(" ")) n = n.substring(0, n.length() - 1);
 
-        if (n.length() > 200) n = n.substring(0, 200);
-        if (n.isEmpty()) n = "upload.bin";
+        if (n.length() > Constants.Upload.MAX_FILENAME_LENGTH) n = n.substring(0, Constants.Upload.MAX_FILENAME_LENGTH);
+        if (n.isEmpty()) n = Constants.Upload.DEFAULT_FILENAME;
 
         // Windows reserved names (CON, NUL, COM1...): "CON.txt" would open a device
         String stem = n.contains(".") ? n.substring(0, n.indexOf('.')) : n;
@@ -219,14 +220,14 @@ public final class UploadHandler {
         }
 
         // 4. Delete the file
-        try {
-            Files.delete(target);
-            return new HttpResponse("200 OK", "text/html; charset=UTF-8",
-                    "<!DOCTYPE html><html><body><h1>File Deleted</h1><p>"
-                    + escape(path) + "</p></body></html>");
-        } catch (IOException e) {
-            return ErrorPages.get(500, server);
-        }
+            try {
+                Files.delete(target);
+                return new HttpResponse(Constants.Http.DEFAULT_STATUS, Constants.Http.CONTENT_TYPE_HTML,
+                        "<!DOCTYPE html><html><body><h1>File Deleted</h1><p>"
+                        + escape(path) + "</p></body></html>");
+            } catch (IOException e) {
+                return ErrorPages.get(500, server);
+            }
     }
 
     private static String escape(String s) {

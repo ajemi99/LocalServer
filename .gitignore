@@ -17,3 +17,6 @@ www/uploads/*
 
 # OS files
 .DS_Store
+
+#.env
+.env

@@ -1,6 +1,7 @@
 package com.localserver.http;
 
 import com.localserver.config.ServerConfig;
+import com.localserver.constants.Constants;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -19,7 +20,7 @@ public class ErrorPages {
                 + "<hr><small>LocalServer</small>\n"
                 + "</body></html>\n";
 
-        return new HttpResponse(normalized + " " + message, "text/html; charset=UTF-8", html);
+        return new HttpResponse(normalized + " " + message, Constants.Http.CONTENT_TYPE_HTML, html);
     }
 
     /**
@@ -34,7 +35,7 @@ public class ErrorPages {
             try {
                 Path path = server.resolvePath(file);
                 if (Files.isRegularFile(path)) {
-                    return new HttpResponse(fallback.status, "text/html; charset=UTF-8",
+                    return new HttpResponse(fallback.status, Constants.Http.CONTENT_TYPE_HTML,
                             Files.readAllBytes(path));
                 }
             } catch (Exception e) {

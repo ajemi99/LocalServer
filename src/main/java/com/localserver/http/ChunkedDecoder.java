@@ -3,6 +3,8 @@ package com.localserver.http;
 import java.io.ByteArrayOutputStream;
 import java.nio.charset.StandardCharsets;
 
+import com.localserver.constants.Constants;
+
 /**
  * Décode un body "Transfer-Encoding: chunked".
  *
@@ -24,8 +26,8 @@ public class ChunkedDecoder {
 
     private enum State { SIZE_LINE, DATA, DATA_CRLF, TRAILERS, DONE }
 
-    private static final int MAX_LINE = 1024;          // taille max d'une ligne de taille / de trailer
-    private static final int MAX_TRAILERS = 8 * 1024;  // taille max de tous les trailers ensemble
+    private static final int MAX_LINE = Constants.Chunked.MAX_LINE;          // taille max d'une ligne de taille / de trailer
+    private static final int MAX_TRAILERS = Constants.Chunked.MAX_TRAILERS;  // taille max de tous les trailers ensemble
 
     private State state = State.SIZE_LINE;
     private int pos;                                   // prochain octet à lire dans le tableau
@@ -58,7 +60,7 @@ public class ChunkedDecoder {
                     }
                     if (eol - pos > MAX_LINE) return Status.BAD;
 
-                    String line = new String(data, pos, eol - pos, StandardCharsets.ISO_8859_1);
+                    String line = new String(data, pos, eol - pos, Constants.Http.ISO_8859_1);
                     int semi = line.indexOf(';');                 // extension de morceau ("5;name=val") : ignorée
                     if (semi != -1) line = line.substring(0, semi);
                     line = line.trim();

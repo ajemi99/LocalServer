@@ -21,6 +21,8 @@ import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
 
+import com.localserver.constants.Constants;
+
 /**
  * Single-threaded non-blocking event loop. One {@link Selector} handles all
  * listening sockets and client connections, preserving the original
@@ -28,7 +30,7 @@ import java.util.List;
  */
 public final class EventLoop {
 
-    private static final int MAX_HEADER_SIZE = 16 * 1024;
+    private static final int MAX_HEADER_SIZE = Constants.Server.MAX_HEADER_SIZE;
 
     private final Selector selector;
     private final List<ServerConfig> servers;
@@ -46,7 +48,7 @@ public final class EventLoop {
     public void run() {
         while (running) {
             try {
-                selector.select(1000);
+                selector.select(Constants.Server.SELECTOR_TIMEOUT_MS);
 
                 Iterator<SelectionKey> iterator = selector.selectedKeys().iterator();
 
@@ -143,13 +145,13 @@ public final class EventLoop {
                                             connection.pending, connection.localPort, servers);
                                     long maxBody = selected != null
                                             ? selected.clientMaxBodySize
-                                            : 1024 * 1024;
+                                            : Constants.Server.DEFAULT_CLIENT_MAX_BODY_SIZE;
 
                                     String transferEncoding =
-                                            connection.pending.headers.get("Transfer-Encoding");
+                                            connection.pending.headers.get(Constants.Http.HEADER_TRANSFER_ENCODING);
                                     if (transferEncoding != null) {
                                         if (!transferEncoding.trim().equalsIgnoreCase("chunked")
-                                                || connection.pending.headers.containsKey("Content-Length")) {
+                                                || connection.pending.headers.containsKey(Constants.Http.HEADER_CONTENT_LENGTH)) {
                                             throw new BadRequestException("Unsupported Transfer-Encoding");
                                         }
                                         connection.decoder = new ChunkedDecoder(
@@ -192,8 +194,8 @@ public final class EventLoop {
                                     }
 
                                     httpRequest.body = connection.decoder.body();
-                                    httpRequest.headers.remove("Transfer-Encoding");
-                                    httpRequest.headers.put("Content-Length",
+                                    httpRequest.headers.remove(Constants.Http.HEADER_TRANSFER_ENCODING);
+                                    httpRequest.headers.put(Constants.Http.HEADER_CONTENT_LENGTH,
                                             String.valueOf(httpRequest.body.length));
                                 } else {
                                     int available = connection.length - bodyStart;

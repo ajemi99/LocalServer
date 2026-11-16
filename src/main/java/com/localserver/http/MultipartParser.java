@@ -7,6 +7,8 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
+import com.localserver.constants.Constants;
+
 /**
  * Lit un body "multipart/form-data" (ce qu'envoie un formulaire HTML avec un champ fichier).
  *
@@ -34,19 +36,19 @@ public class MultipartParser {
         public byte[] data;          // contenu, octet pour octet
     }
 
-    private static final int MAX_PARTS = 100;
-    private static final int MAX_PART_HEADERS = 8 * 1024;
-    private static final byte[] CRLF = { '\r', '\n' };
-    private static final byte[] CRLFCRLF = { '\r', '\n', '\r', '\n' };
+    private static final int MAX_PARTS = Constants.Multipart.MAX_PARTS;
+    private static final int MAX_PART_HEADERS = Constants.Multipart.MAX_PART_HEADERS;
+    private static final byte[] CRLF = Constants.Multipart.CRLF;
+    private static final byte[] CRLFCRLF = Constants.Multipart.CRLFCRLF;
 
     // "multipart/form-data; boundary=----abc" -> "----abc"   (null si absent ou invalide)
     public static String boundaryOf(String contentType) {
         if (contentType == null) return null;
         String lower = contentType.toLowerCase(Locale.ROOT);
-        int i = lower.indexOf("boundary=");
+        int i = lower.indexOf(Constants.Multipart.BOUNDARY_PREFIX);
         if (i == -1) return null;
 
-        String v = contentType.substring(i + "boundary=".length()).trim();
+        String v = contentType.substring(i + Constants.Multipart.BOUNDARY_PREFIX.length()).trim();
         if (v.startsWith("\"")) {
             int end = v.indexOf('"', 1);
             if (end == -1) return null;
@@ -62,8 +64,8 @@ public class MultipartParser {
 
     public static List<Part> parse(byte[] body, String boundary) {
 
-        byte[] delim = ("--" + boundary).getBytes(StandardCharsets.ISO_8859_1);
-        byte[] nextDelim = ("\r\n--" + boundary).getBytes(StandardCharsets.ISO_8859_1);
+        byte[] delim = ("--" + boundary).getBytes(Constants.Http.ISO_8859_1);
+        byte[] nextDelim = ("\r\n--" + boundary).getBytes(Constants.Http.ISO_8859_1);
         List<Part> parts = new ArrayList<>();
 
         // Début : première ligne "--boundary" (un éventuel texte avant elle est ignoré)
@@ -94,7 +96,7 @@ public class MultipartParser {
                 if (hEnd == -1 || hEnd - pos > MAX_PART_HEADERS) {
                     throw new BadRequestException("Malformed multipart headers");
                 }
-                headerText = new String(body, pos, hEnd - pos, StandardCharsets.UTF_8);
+                headerText = new String(body, pos, hEnd - pos, Constants.Http.UTF_8);
                 dataStart = hEnd + 4;
             }
 

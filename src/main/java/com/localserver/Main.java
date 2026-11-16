@@ -3,6 +3,7 @@ package com.localserver;
 import com.localserver.cli.CommandParser;
 import com.localserver.runtime.ServerRuntime;
 import com.localserver.runtime.ShutdownHandler;
+import java.util.Arrays;
 
 /**
  * Application entry point. It only coordinates CLI parsing and runtime
@@ -15,6 +16,10 @@ public final class Main {
     }
 
     public static void main(String[] args) {
+        // Debug(start)
+        System.out.println("entry point:" + Arrays.toString(args));
+        // Debug(end)
+        
         CommandParser.Command command;
         try {
             command = CommandParser.parse(args);

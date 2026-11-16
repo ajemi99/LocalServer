@@ -5,6 +5,7 @@ import com.localserver.config.ServerConfig;
 import com.localserver.http.ErrorPages;
 import com.localserver.http.HttpRequest;
 import com.localserver.http.HttpResponse;
+import com.localserver.constants.Constants;
 
 import java.io.IOException;
 import java.net.URLEncoder;
@@ -21,22 +22,6 @@ import java.util.stream.Stream;
  * Serves static files, directory indexes and CGI scripts for GET requests.
  */
 public final class StaticFileHandler {
-
-    private static final Map<String, String> MIME = Map.ofEntries(
-            Map.entry("html", "text/html; charset=UTF-8"),
-            Map.entry("htm", "text/html; charset=UTF-8"),
-            Map.entry("css", "text/css; charset=UTF-8"),
-            Map.entry("js", "application/javascript; charset=UTF-8"),
-            Map.entry("json", "application/json; charset=UTF-8"),
-            Map.entry("txt", "text/plain; charset=UTF-8"),
-            Map.entry("png", "image/png"),
-            Map.entry("jpg", "image/jpeg"),
-            Map.entry("jpeg", "image/jpeg"),
-            Map.entry("gif", "image/gif"),
-            Map.entry("svg", "image/svg+xml"),
-            Map.entry("ico", "image/x-icon"),
-            Map.entry("pdf", "application/pdf")
-    );
 
     private StaticFileHandler() {
     }
@@ -116,16 +101,16 @@ public final class StaticFileHandler {
             return ErrorPages.get(403, server);
         }
         byte[] data = Files.readAllBytes(file);
-        return new HttpResponse("200 OK", mimeType(file), data);
+        return new HttpResponse(Constants.Http.DEFAULT_STATUS, mimeType(file), data);
     }
 
     private static String mimeType(Path file) {
         String name = file.getFileName().toString().toLowerCase();
         int dot = name.lastIndexOf('.');
         if (dot == -1) {
-            return "application/octet-stream";
+            return Constants.Mime.DEFAULT;
         }
-        return MIME.getOrDefault(name.substring(dot + 1), "application/octet-stream");
+        return Constants.Mime.TYPES.getOrDefault(name.substring(dot + 1), Constants.Mime.DEFAULT);
     }
 
     // Directory listing
@@ -156,7 +141,7 @@ public final class StaticFileHandler {
         }
 
         sb.append("</ul><hr><small>LocalServer</small></body></html>");
-        return new HttpResponse("200 OK", "text/html; charset=UTF-8", sb.toString());
+        return new HttpResponse(Constants.Http.DEFAULT_STATUS, Constants.Http.CONTENT_TYPE_HTML, sb.toString());
     }
 
     private static String escape(String s) {

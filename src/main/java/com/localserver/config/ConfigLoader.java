@@ -9,13 +9,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import com.localserver.constants.Constants;
+
 /**
  * Parses and validates the JSON configuration. This class only produces
  * configuration objects; it never opens sockets or starts the runtime.
  */
 public class ConfigLoader {
-
-    private static final Set<String> ALLOWED_METHODS = Set.of("GET", "POST", "DELETE");
 
     /**
      * Loads a configuration file. Relative paths inside the file are resolved
@@ -37,7 +37,7 @@ public class ConfigLoader {
                 : Path.of("").toAbsolutePath().normalize();
         Path baseDir = resolveBaseDir(rootMap, configDir);
 
-        List<Object> serversJson = getList(rootMap, "servers");
+        List<Object> serversJson = getList(rootMap, Constants.Config.KEY_SERVERS);
 
         if (serversJson == null || serversJson.isEmpty()) {
             throw new IllegalArgumentException("'servers' must be a non-empty array");
@@ -54,7 +54,7 @@ public class ConfigLoader {
     }
 
     private static Path resolveBaseDir(Map<String, Object> rootMap, Path configDir) {
-        String configured = getString(rootMap, "baseDir", null);
+        String configured = getString(rootMap, Constants.Config.KEY_BASE_DIR, null);
         if (configured == null) {
             return configDir;
         }
@@ -62,7 +62,7 @@ public class ConfigLoader {
         Path base = Path.of(configured);
         Path resolved = base.isAbsolute() ? base.normalize() : configDir.resolve(base).normalize();
         if (!Files.isDirectory(resolved)) {
-            throw new IllegalArgumentException("'baseDir' is not a directory: " + resolved);
+            throw new IllegalArgumentException("'" + Constants.Config.KEY_BASE_DIR + "' is not a directory: " + resolved);
         }
         return resolved;
     }
@@ -74,17 +74,17 @@ public class ConfigLoader {
         ServerConfig s = new ServerConfig();
         s.baseDir = baseDir;
 
-        s.host = getString(m, "host", "0.0.0.0");
-        s.serverName = getString(m, "serverName", "");
-        s.isDefault = getBool(m, "default", false);
-        s.clientMaxBodySize = getLong(m, "clientMaxBodySize", 1024 * 1024);
+        s.host = getString(m, Constants.Config.KEY_HOST, Constants.Server.DEFAULT_HOST);
+        s.serverName = getString(m, Constants.Config.KEY_SERVER_NAME, "");
+        s.isDefault = getBool(m, Constants.Config.KEY_DEFAULT, false);
+        s.clientMaxBodySize = getLong(m, Constants.Config.KEY_CLIENT_MAX_BODY_SIZE, Constants.Server.DEFAULT_CLIENT_MAX_BODY_SIZE);
 
         if (s.clientMaxBodySize <= 0) {
             throw new IllegalArgumentException(where + ".clientMaxBodySize must be > 0");
         }
 
         // ports
-        List<Object> ports = getList(m, "ports");
+        List<Object> ports = getList(m, Constants.Config.KEY_PORTS);
         if (ports == null || ports.isEmpty()) {
             throw new IllegalArgumentException(where + ".ports must be a non-empty array");
         }
@@ -100,7 +100,7 @@ public class ConfigLoader {
         }
 
         // error pages: { "404": "error_pages/404.html" }
-        Map<String, Object> errors = getMap(m, "errorPages");
+        Map<String, Object> errors = getMap(m, Constants.Config.KEY_ERROR_PAGES);
         if (errors != null) {
             for (Map.Entry<String, Object> e : errors.entrySet()) {
                 int code;
@@ -117,7 +117,7 @@ public class ConfigLoader {
         }
 
         // routes
-        List<Object> routes = getList(m, "routes");
+        List<Object> routes = getList(m, Constants.Config.KEY_ROUTES);
         if (routes != null) {
             for (int i = 0; i < routes.size(); i++) {
                 String rw = where + ".routes[" + i + "]";
@@ -133,33 +133,33 @@ public class ConfigLoader {
     private static RouteConfig parseRoute(Map<String, Object> m, String where) {
         RouteConfig r = new RouteConfig();
 
-        r.path = getString(m, "path", null);
+        r.path = getString(m, Constants.Config.KEY_PATH, null);
         if (r.path == null || !r.path.startsWith("/")) {
             throw new IllegalArgumentException(where + ".path is required and must start with '/'");
         }
 
-        List<Object> methods = getList(m, "methods");
+        List<Object> methods = getList(m, Constants.Config.KEY_METHODS);
         if (methods == null) {
-            r.methods.add("GET");                  // default
+            r.methods.add(Constants.Config.DEFAULT_METHOD);
         } else {
             for (Object o : methods) {
-                if (!(o instanceof String) || !ALLOWED_METHODS.contains(o)) {
+                if (!(o instanceof String) || !Constants.Config.ALLOWED_METHODS.contains(o)) {
                     throw new IllegalArgumentException(where + ".methods: only GET, POST, DELETE allowed");
                 }
                 r.methods.add((String) o);
             }
         }
 
-        r.redirect = getString(m, "redirect", null);
-        r.root = getString(m, "root", null);
-        r.index = getString(m, "index", null);
-        r.directoryListing = getBool(m, "directoryListing", false);
+        r.redirect = getString(m, Constants.Config.KEY_REDIRECT, null);
+        r.root = getString(m, Constants.Config.KEY_ROOT, null);
+        r.index = getString(m, Constants.Config.KEY_INDEX, null);
+        r.directoryListing = getBool(m, Constants.Config.KEY_DIRECTORY_LISTING, false);
 
         if (r.redirect == null && r.root == null) {
             throw new IllegalArgumentException(where + " needs either 'root' or 'redirect'");
         }
 
-        Map<String, Object> cgi = getMap(m, "cgi");
+        Map<String, Object> cgi = getMap(m, Constants.Config.KEY_CGI);
         if (cgi != null) {
             for (Map.Entry<String, Object> e : cgi.entrySet()) {
                 if (!e.getKey().startsWith(".") || !(e.getValue() instanceof String)) {

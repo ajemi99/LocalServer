@@ -6,6 +6,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+import com.localserver.constants.Constants;
+
 /**
  * Configuration of one virtual server.
  *
@@ -17,11 +19,11 @@ import java.util.Map;
  */
 public class ServerConfig {
 
-    public String host = "0.0.0.0";
+    public String host = Constants.Server.DEFAULT_HOST;
     public List<Integer> ports = new ArrayList<>();
     public String serverName = "";                        // used with the Host header
     public boolean isDefault = false;                     // default server for its ports
-    public long clientMaxBodySize = 1024 * 1024;          // bytes (default 1 MiB)
+    public long clientMaxBodySize = Constants.Server.DEFAULT_CLIENT_MAX_BODY_SIZE; // bytes (default 1 MiB)
     public Map<Integer, String> errorPages = new LinkedHashMap<>(); // 404 -> "error_pages/404.html"
     public List<RouteConfig> routes = new ArrayList<>();
 

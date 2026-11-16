@@ -6,16 +6,18 @@ import com.localserver.http.HttpRequest;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 
+import com.localserver.constants.Constants;
+
 /**
  * Per-client connection state for the single-threaded event loop.
  */
 public class Connection {
 
-    static final int INITIAL_SIZE = 8192;       // starting size of the request buffer
-    static final int SHRINK_ABOVE = 64 * 1024;  // shrink after a large upload
+    static final int INITIAL_SIZE = Constants.Server.CONNECTION_INITIAL_SIZE;       // starting size of the request buffer
+    static final int SHRINK_ABOVE = Constants.Server.CONNECTION_SHRINK_ABOVE;  // shrink after a large upload
 
     // Small buffer used ONLY to read from the socket (one chunk at a time)
-    ByteBuffer requestBuffer = ByteBuffer.allocate(8192);
+    ByteBuffer requestBuffer = ByteBuffer.allocate(Constants.Server.CONNECTION_INITIAL_SIZE);
 
     // Response currently being sent
     ByteBuffer responseBuffer = ByteBuffer.allocate(0);
