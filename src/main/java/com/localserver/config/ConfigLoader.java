@@ -28,6 +28,9 @@ public class ConfigLoader {
     public static List<ServerConfig> load(Path path) throws IOException {
         Path configPath = path.toAbsolutePath().normalize();
         String text = Files.readString(configPath);
+
+
+        
         Object root = JsonParser.parse(text);
 
         Map<String, Object> rootMap = asMap(root, "root");
@@ -61,7 +64,8 @@ public class ConfigLoader {
         Path base = Path.of(configured);
         Path resolved = base.isAbsolute() ? base.normalize() : configDir.resolve(base).normalize();
         if (!Files.isDirectory(resolved)) {
-            throw new IllegalArgumentException("'" + Constants.Config.KEY_BASE_DIR + "' is not a directory: " + resolved);
+            throw new IllegalArgumentException(
+                    "'" + Constants.Config.KEY_BASE_DIR + "' is not a directory: " + resolved);
         }
         return resolved;
     }
@@ -76,7 +80,8 @@ public class ConfigLoader {
         s.host = getString(m, Constants.Config.KEY_HOST, Constants.Server.DEFAULT_HOST);
         s.serverName = getString(m, Constants.Config.KEY_SERVER_NAME, "");
         s.isDefault = getBool(m, Constants.Config.KEY_DEFAULT, false);
-        s.clientMaxBodySize = getLong(m, Constants.Config.KEY_CLIENT_MAX_BODY_SIZE, Constants.Server.DEFAULT_CLIENT_MAX_BODY_SIZE);
+        s.clientMaxBodySize = getLong(m, Constants.Config.KEY_CLIENT_MAX_BODY_SIZE,
+                Constants.Server.DEFAULT_CLIENT_MAX_BODY_SIZE);
 
         if (s.clientMaxBodySize <= 0) {
             throw new IllegalArgumentException(where + ".clientMaxBodySize must be > 0");
@@ -92,7 +97,7 @@ public class ConfigLoader {
                 throw new IllegalArgumentException(where + ".ports must contain integers");
             }
             long port = (Long) p;
-            if (port < 1 || port > 65535) {
+            if (port < 1024 || port > 49151) {
                 throw new IllegalArgumentException(where + ": invalid port " + port);
             }
             s.ports.add((int) port);
@@ -177,7 +182,8 @@ public class ConfigLoader {
     private static void checkDefaults(List<ServerConfig> servers) {
         Map<Integer, Integer> defaultsPerPort = new HashMap<>();
         for (ServerConfig s : servers) {
-            if (!s.isDefault) continue;
+            if (!s.isDefault)
+                continue;
             for (int port : s.ports) {
                 int count = defaultsPerPort.merge(port, 1, Integer::sum);
                 if (count > 1) {
@@ -200,7 +206,8 @@ public class ConfigLoader {
     @SuppressWarnings("unchecked")
     private static Map<String, Object> getMap(Map<String, Object> m, String key) {
         Object o = m.get(key);
-        if (o == null) return null;
+        if (o == null)
+            return null;
         if (!(o instanceof Map)) {
             throw new IllegalArgumentException("'" + key + "' must be a JSON object");
         }
@@ -210,7 +217,8 @@ public class ConfigLoader {
     @SuppressWarnings("unchecked")
     private static List<Object> getList(Map<String, Object> m, String key) {
         Object o = m.get(key);
-        if (o == null) return null;
+        if (o == null)
+            return null;
         if (!(o instanceof List)) {
             throw new IllegalArgumentException("'" + key + "' must be an array");
         }
@@ -219,7 +227,8 @@ public class ConfigLoader {
 
     private static String getString(Map<String, Object> m, String key, String def) {
         Object o = m.get(key);
-        if (o == null) return def;
+        if (o == null)
+            return def;
         if (!(o instanceof String)) {
             throw new IllegalArgumentException("'" + key + "' must be a string");
         }
@@ -228,7 +237,8 @@ public class ConfigLoader {
 
     private static boolean getBool(Map<String, Object> m, String key, boolean def) {
         Object o = m.get(key);
-        if (o == null) return def;
+        if (o == null)
+            return def;
         if (!(o instanceof Boolean)) {
             throw new IllegalArgumentException("'" + key + "' must be true or false");
         }
@@ -237,7 +247,8 @@ public class ConfigLoader {
 
     private static long getLong(Map<String, Object> m, String key, long def) {
         Object o = m.get(key);
-        if (o == null) return def;
+        if (o == null)
+            return def;
         if (!(o instanceof Long)) {
             throw new IllegalArgumentException("'" + key + "' must be an integer");
         }

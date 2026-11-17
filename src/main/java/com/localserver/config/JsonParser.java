@@ -6,14 +6,14 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Parseur JSON minimal.
- * Kay-rje3:
- *   object  -> Map<String,Object>
- *   array   -> List<Object>
- *   string  -> String
- *   number  -> Long (bla point) wla Double
- *   true/false -> Boolean
- *   null    -> null
+ * JSON Parser.
+ * Returns:
+ * object -> Map<String,Object>
+ * array -> List<Object>
+ * string -> String
+ * number -> Long (bla point) wla Double
+ * true/false -> Boolean
+ * null -> null
  */
 public class JsonParser {
 
@@ -25,12 +25,12 @@ public class JsonParser {
     }
 
     public static Object parse(String text) {
-        JsonParser p = new JsonParser(text);
-        p.skipWhitespace();
-        Object value = p.readValue();
-        p.skipWhitespace();
-        if (p.pos != p.s.length()) {
-            throw p.error("Unexpected content after JSON value");
+        JsonParser jsonParser = new JsonParser(text);
+        jsonParser.skipWhitespace();
+        Object value = jsonParser.readValue();
+        jsonParser.skipWhitespace();
+        if (jsonParser.pos != jsonParser.s.length()) {
+            throw jsonParser.error("Unexpected content after JSON value");
         }
         return value;
     }
@@ -43,13 +43,23 @@ public class JsonParser {
         }
         char c = s.charAt(pos);
         switch (c) {
-            case '{': return readObject();
-            case '[': return readArray();
-            case '"': return readString();
-            case 't': expectWord("true");  return Boolean.TRUE;
-            case 'f': expectWord("false"); return Boolean.FALSE;
-            case 'n': expectWord("null");  return null;
-            default:  return readNumber();
+            case '{':
+                return readObject();
+            case '[':
+                return readArray();
+            case '"':
+                return readString();
+            case 't':
+                expectWord("true");
+                return Boolean.TRUE;
+            case 'f':
+                expectWord("false");
+                return Boolean.FALSE;
+            case 'n':
+                expectWord("null");
+                return null;
+            default:
+                return readNumber();
         }
     }
 
@@ -76,8 +86,10 @@ public class JsonParser {
             skipWhitespace();
 
             char c = next();
-            if (c == ',') continue;
-            if (c == '}') return map;
+            if (c == ',')
+                continue;
+            if (c == '}')
+                return map;
             throw error("Expected ',' or '}'");
         }
     }
@@ -98,8 +110,10 @@ public class JsonParser {
             skipWhitespace();
 
             char c = next();
-            if (c == ',') continue;
-            if (c == ']') return list;
+            if (c == ',')
+                continue;
+            if (c == ']')
+                return list;
             throw error("Expected ',' or ']'");
         }
     }
@@ -118,19 +132,37 @@ public class JsonParser {
                 return sb.toString();
             }
             if (c == '\\') {
-                if (pos >= s.length()) throw error("Bad escape");
+                if (pos >= s.length())
+                    throw error("Bad escape");
                 char e = s.charAt(pos++);
                 switch (e) {
-                    case '"':  sb.append('"');  break;
-                    case '\\': sb.append('\\'); break;
-                    case '/':  sb.append('/');  break;
-                    case 'n':  sb.append('\n'); break;
-                    case 't':  sb.append('\t'); break;
-                    case 'r':  sb.append('\r'); break;
-                    case 'b':  sb.append('\b'); break;
-                    case 'f':  sb.append('\f'); break;
+                    case '"':
+                        sb.append('"');
+                        break;
+                    case '\\':
+                        sb.append('\\');
+                        break;
+                    case '/':
+                        sb.append('/');
+                        break;
+                    case 'n':
+                        sb.append('\n');
+                        break;
+                    case 't':
+                        sb.append('\t');
+                        break;
+                    case 'r':
+                        sb.append('\r');
+                        break;
+                    case 'b':
+                        sb.append('\b');
+                        break;
+                    case 'f':
+                        sb.append('\f');
+                        break;
                     case 'u':
-                        if (pos + 4 > s.length()) throw error("Bad unicode escape");
+                        if (pos + 4 > s.length())
+                            throw error("Bad unicode escape");
                         try {
                             sb.append((char) Integer.parseInt(s.substring(pos, pos + 4), 16));
                         } catch (NumberFormatException ex) {
@@ -176,7 +208,8 @@ public class JsonParser {
     }
 
     private char peek() {
-        if (pos >= s.length()) throw error("Unexpected end of JSON");
+        if (pos >= s.length())
+            throw error("Unexpected end of JSON");
         return s.charAt(pos);
     }
 
@@ -200,11 +233,16 @@ public class JsonParser {
         pos += word.length();
     }
 
-    // Message b numéro dyal ligne bach ykon sahl t-lqa l'ghalta f config.json
+    // Message b numÃ©ro dyal ligne bach ykon sahl t-lqa l'ghalta f config.json
     private IllegalArgumentException error(String msg) {
         int line = 1, col = 1;
         for (int i = 0; i < pos && i < s.length(); i++) {
-            if (s.charAt(i) == '\n') { line++; col = 1; } else { col++; }
+            if (s.charAt(i) == '\n') {
+                line++;
+                col = 1;
+            } else {
+                col++;
+            }
         }
         return new IllegalArgumentException(
                 "JSON error at line " + line + ", column " + col + ": " + msg);
