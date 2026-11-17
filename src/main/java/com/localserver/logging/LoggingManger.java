@@ -1,6 +1,7 @@
 package com.localserver.logging;
 
 import java.io.IOException;
+import java.util.logging.Handler;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -14,12 +15,7 @@ public final class LoggingManger {
 
     public static final Logger LOGGER = Logger.getLogger("com.localserver");
 
-    public static volatile boolean initialized = false;
-
-    static {
-        Thread flushThread = new Thread(() -> flush(), "localserver-logger-flush");
-        Runtime.getRuntime().addShutdownHook(flushThread);
-    }
+    public static boolean initialized = false;
 
     public static synchronized void initialize() throws IOException {
         if (initialized) {
@@ -82,9 +78,11 @@ public final class LoggingManger {
         LOGGER.finest(msg);
     }
 
-    public static void flush() {
-        for (java.util.logging.Handler h : LOGGER.getHandlers()) {
-            h.flush();
+    public static void shutdown() {
+        for (Handler handler : LOGGER.getHandlers()) {
+            handler.flush();
+            handler.close();
+            LOGGER.removeHandler(handler);
         }
     }
 }

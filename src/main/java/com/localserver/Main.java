@@ -3,7 +3,6 @@ package com.localserver;
 import com.localserver.cli.CommandParser;
 import com.localserver.logging.LoggingManger;
 import com.localserver.runtime.ServerRuntime;
-import com.localserver.runtime.ShutdownHandler;
 import java.io.IOException;
 
 /**
@@ -32,15 +31,12 @@ public final class Main {
 
             ServerRuntime runtime = new ServerRuntime(command.configPath());
 
-            // setting up the server
-            ShutdownHandler shutdownHandler = new ShutdownHandler(runtime);
-            shutdownHandler.register();
 
             // running the server
             try {
                 runtime.start();
             } finally {
-                shutdownHandler.unregister();
+                LoggingManger.shutdown();
             }
 
         } catch (Exception e) {

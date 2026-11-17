@@ -4,6 +4,9 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+
+import com.localserver.constants.Constants;
 
 /**
  * JSON Parser.
@@ -19,12 +22,14 @@ public class JsonParser {
 
     private final String s;
     private int pos = 0;
+    private int depth = 0;
 
     private JsonParser(String s) {
         this.s = s;
     }
 
     public static Object parse(String text) {
+        Objects.requireNonNull(text, "JSON input cannot be null");
         JsonParser jsonParser = new JsonParser(text);
         jsonParser.skipWhitespace();
         Object value = jsonParser.readValue();
@@ -41,7 +46,9 @@ public class JsonParser {
         if (pos >= s.length()) {
             throw error("Unexpected end of JSON");
         }
+
         char c = s.charAt(pos);
+
         switch (c) {
             case '{':
                 return readObject();
@@ -64,57 +71,86 @@ public class JsonParser {
     }
 
     private Map<String, Object> readObject() {
-        Map<String, Object> map = new LinkedHashMap<>();
-        pos++; // '{'
-        skipWhitespace();
-
-        if (peek() == '}') {
-            pos++;
-            return map;
-        }
-
-        while (true) {
-            skipWhitespace();
-            if (peek() != '"') {
-                throw error("Expected string key");
-            }
-            String key = readString();
-            skipWhitespace();
-            expectChar(':');
-            skipWhitespace();
-            map.put(key, readValue());
+        enterContainer();
+        try {
+            Map<String, Object> map = new LinkedHashMap<>();
+            pos++; // '{'
             skipWhitespace();
 
-            char c = next();
-            if (c == ',')
-                continue;
-            if (c == '}')
+            if (peek() == '}') {
+                pos++;
                 return map;
-            throw error("Expected ',' or '}'");
+            }
+
+            while (true) {
+                skipWhitespace();
+
+                if (peek() != '"') {
+                    throw error("Expected string key");
+                }
+
+                String key = readString();
+
+                skipWhitespace();
+                expectChar(':');
+                skipWhitespace();
+
+                if (map.containsKey(key)) {
+                    throw error("Duplicate object key '" + key + "'");
+                }
+
+                map.put(key, readValue());
+                skipWhitespace();
+
+                char c = next();
+
+                if (c == ',') {
+                    continue;
+                }
+
+                if (c == '}') {
+                    return map;
+                }
+
+                throw error("Expected ',' or '}'");
+            }
+        } finally {
+            exitContainer();
         }
     }
 
     private List<Object> readArray() {
-        List<Object> list = new ArrayList<>();
-        pos++; // '['
-        skipWhitespace();
+        enterContainer();
 
-        if (peek() == ']') {
-            pos++;
-            return list;
-        }
-
-        while (true) {
-            skipWhitespace();
-            list.add(readValue());
+        try {
+            List<Object> list = new ArrayList<>();
+            pos++; // '['
             skipWhitespace();
 
-            char c = next();
-            if (c == ',')
-                continue;
-            if (c == ']')
+            if (peek() == ']') {
+                pos++;
                 return list;
-            throw error("Expected ',' or ']'");
+            }
+
+            while (true) {
+                skipWhitespace();
+                list.add(readValue());
+                skipWhitespace();
+
+                char c = next();
+
+                if (c == ',') {
+                    continue;
+                }
+
+                if (c == ']') {
+                    return list;
+                }
+
+                throw error("Expected ',' or ']'");
+            }
+        } finally {
+            exitContainer();
         }
     }
 
@@ -161,19 +197,41 @@ public class JsonParser {
                         sb.append('\f');
                         break;
                     case 'u':
-                        if (pos + 4 > s.length())
-                            throw error("Bad unicode escape");
-                        try {
-                            sb.append((char) Integer.parseInt(s.substring(pos, pos + 4), 16));
-                        } catch (NumberFormatException ex) {
-                            throw error("Bad unicode escape");
+                        char unicode = readUnicodeEscape();
+
+                        if (Character.isHighSurrogate(unicode)) {
+                            // A high surrogate must be followed by another \\uXXXX escape.
+                            if (pos + 2 > s.length()
+                                    || s.charAt(pos) != '\\'
+                                    || s.charAt(pos + 1) != 'u') {
+                                throw error("High surrogate must be followed by a low surrogate");
+                            }
+
+                            pos += 2;
+                            char lowSurrogate = readUnicodeEscape();
+
+                            if (!Character.isLowSurrogate(lowSurrogate)) {
+                                throw error("Expected low surrogate after high surrogate");
+                            }
+
+                            sb.append(unicode);
+                            sb.append(lowSurrogate);
+
+                        } else if (Character.isLowSurrogate(unicode)) {
+                            throw error("Unexpected low surrogate");
+
+                        } else {
+                            sb.append(unicode);
                         }
-                        pos += 4;
+
                         break;
                     default:
                         throw error("Unknown escape \\" + e);
                 }
             } else {
+                if (c <= 0x1F) {
+                    throw error("Unescaped control character in string");
+                }
                 sb.append(c);
             }
         }
@@ -181,29 +239,93 @@ public class JsonParser {
 
     private Object readNumber() {
         int start = pos;
-        while (pos < s.length() && "-+0123456789.eE".indexOf(s.charAt(pos)) != -1) {
+        // start with minus sign
+        if (peek('-')) {
             pos++;
         }
-        String num = s.substring(start, pos);
-        if (num.isEmpty()) {
-            throw error("Unexpected character '" + s.charAt(pos) + "'");
+        // integer part
+        if (peek('0')) {
+            pos++;
+
+            // Json doesnt allow leading Zeros
+            if (pos < s.length() && isDigit(s.charAt(pos))) {
+                throw error("Leading zeros are not allowed");
+            }
+
+        } else if (pos < s.length() && isDigitOneToNine(s.charAt(pos))) {
+            while (pos < s.length() && isDigit(s.charAt(pos))) {
+                pos++;
+            }
+        } else {
+            throw error("Invalid integer part");
         }
+
+        if (peek('.')) {
+            if (pos >= s.length() || !isDigit(s.charAt(pos))) {
+                throw error("Expected digit after decimal point found something else");
+            }
+            while (pos < s.length() && isDigit(s.charAt(pos))) {
+                pos++;
+            }
+        }
+
+        // Optional exponent.
+        if (peek('e') || peek('E')) {
+            pos++;
+
+            if (peek('+') || peek('-')) {
+                pos++;
+            }
+
+            if (pos >= s.length() || !isDigit(s.charAt(pos))) {
+                throw error("Expected exponent digits");
+            }
+
+            while (pos < s.length() && isDigit(s.charAt(pos))) {
+                pos++;
+            }
+        }
+
+        String num = s.substring(start, pos);
+
         try {
             if (num.contains(".") || num.contains("e") || num.contains("E")) {
-                return Double.parseDouble(num);
+                double value = Double.parseDouble(num);
+
+                if (!Double.isFinite(value)) {
+                    throw error("Number out of supported range: '" + num + "'");
+                }
+
+                return value;
             }
             return Long.parseLong(num);
         } catch (NumberFormatException e) {
-            pos = start;
-            throw error("Invalid number '" + num + "'");
+            throw error("Number out of supported range: '" + num + "'");
         }
     }
 
-    // ---------- outils ----------
+    // ---------- helpers ----------
+
+    private void enterContainer() {
+        if (depth >= Constants.Config.MAX_NESSTING_DEPTH) {
+            throw error("Maximum nesting depth exceeded");
+        }
+
+        depth++;
+    }
+
+    private void exitContainer() {
+        depth--;
+    }
 
     private void skipWhitespace() {
-        while (pos < s.length() && Character.isWhitespace(s.charAt(pos))) {
-            pos++;
+        while (pos < s.length()) {
+            char c = s.charAt(pos);
+            if (c == ' ' || c == '\t' || c == '\n' || c == '\r') {
+                pos++;
+            } else {
+                break;
+            }
         }
     }
 
@@ -211,6 +333,10 @@ public class JsonParser {
         if (pos >= s.length())
             throw error("Unexpected end of JSON");
         return s.charAt(pos);
+    }
+
+    private boolean peek(char expected) {
+        return pos < s.length() && s.charAt(pos) == expected;
     }
 
     private char next() {
@@ -233,7 +359,31 @@ public class JsonParser {
         pos += word.length();
     }
 
-    // Message b numÃ©ro dyal ligne bach ykon sahl t-lqa l'ghalta f config.json
+    private boolean isDigit(char c) {
+        return c >= '0' && c <= '9';
+    }
+
+    private boolean isDigitOneToNine(char c) {
+        return c >= '1' && c <= '9';
+    }
+
+    private char readUnicodeEscape() {
+        if (pos + 4 > s.length()) {
+            throw error("Incomplete Unicode escape");
+        }
+
+        String hex = s.substring(pos, pos + 4);
+
+        try {
+            char value = (char) Integer.parseInt(hex, 16);
+            pos += 4;
+            return value;
+        } catch (NumberFormatException e) {
+            throw error("Invalid Unicode escape: " + hex);
+        }
+    }
+
+    // Message with excat place when does the error occur in the server.json
     private IllegalArgumentException error(String msg) {
         int line = 1, col = 1;
         for (int i = 0; i < pos && i < s.length(); i++) {

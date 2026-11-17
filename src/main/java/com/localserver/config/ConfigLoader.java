@@ -7,8 +7,10 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.logging.Level;
 
 import com.localserver.constants.Constants;
+import com.localserver.logging.LoggingManger;
 
 /**
  * Parses and validates the JSON configuration. This class only produces
@@ -29,8 +31,11 @@ public class ConfigLoader {
         Path configPath = path.toAbsolutePath().normalize();
         String text = Files.readString(configPath);
 
+        // Debug
+        LoggingManger.log(Level.WARNING, "com.localserver.config.ConfigLoader");
+        LoggingManger.info(text);
+        // Debug
 
-        
         Object root = JsonParser.parse(text);
 
         Map<String, Object> rootMap = asMap(root, "root");
@@ -97,7 +102,7 @@ public class ConfigLoader {
                 throw new IllegalArgumentException(where + ".ports must contain integers");
             }
             long port = (Long) p;
-            if (port < 1024 || port > 49151) {
+            if (port < 1 || port > 65535) {
                 throw new IllegalArgumentException(where + ": invalid port " + port);
             }
             s.ports.add((int) port);

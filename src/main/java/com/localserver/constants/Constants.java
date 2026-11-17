@@ -119,6 +119,8 @@ public final class Constants {
      */
     public static final class Config {
 
+        public static final int MAX_NESSTING_DEPTH = 100;
+
         public static final String KEY_SERVERS = "servers";
         public static final String KEY_BASE_DIR = "baseDir";
         public static final String KEY_HOST = "host";
