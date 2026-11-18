@@ -93,6 +93,14 @@ public final class Constants {
                 307, "Temporary Redirect",
                 308, "Permanent Redirect");
 
+        /** Redirect statuses accepted in the configuration. */
+        public static final Set<Long> REDIRECT_CODES = Set.of(301L, 302L, 303L, 307L, 308L);
+
+        /** Error statuses that can be associated with a custom error page. */
+        public static final Set<Integer> SUPPORTED_ERROR_CODES = Set.of(
+                BAD_REQUEST, FORBIDDEN, NOT_FOUND, METHOD_NOT_ALLOWED, PAYLOAD_TOO_LARGE,
+                INTERNAL_SERVER_ERROR);
+
         public static boolean isRedirect(int code) { return REDIRECT_REASONS.containsKey(code); }
         public static String reasonFor(int code) { return REDIRECT_REASONS.getOrDefault(code, "Moved Permanently"); }
 
@@ -133,7 +141,11 @@ public final class Constants {
 
         public static final String KEY_SERVERS = "servers";
         public static final String KEY_BASE_DIR = "baseDir";
+        public static final String KEY_BIND_ADDRESS = "bindAddress";
+        public static final String KEY_SERVER_NAMES = "serverNames";
+        /** Legacy alias for {@link #KEY_BIND_ADDRESS}. */
         public static final String KEY_HOST = "host";
+        /** Legacy alias for {@link #KEY_SERVER_NAMES}. */
         public static final String KEY_SERVER_NAME = "serverName";
         public static final String KEY_DEFAULT = "default";
         public static final String KEY_CLIENT_MAX_BODY_SIZE = "clientMaxBodySize";

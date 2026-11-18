@@ -45,7 +45,7 @@ public final class Server {
         Map<Integer, String> portToHost = new LinkedHashMap<>();
         for (ServerConfig sc : servers) {
             for (int port : sc.ports) {
-                portToHost.putIfAbsent(port, sc.host);
+                portToHost.putIfAbsent(port, sc.bindAddress);
             }
         }
 

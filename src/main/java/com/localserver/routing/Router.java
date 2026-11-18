@@ -112,7 +112,7 @@ public class Router {
                 host = host.substring(0, colon);
             }
             for (ServerConfig s : candidates) {
-                if (!s.serverName.isEmpty() && s.serverName.equalsIgnoreCase(host)) {
+                if (matchesHost(s, host)) {
                     return s;
                 }
             }
@@ -124,6 +124,15 @@ public class Router {
             }
         }
         return candidates.get(0);
+    }
+
+    private static boolean matchesHost(ServerConfig server, String host) {
+        for (String name : server.serverNames) {
+            if (name.equalsIgnoreCase(host)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     // The longest route prefix wins.

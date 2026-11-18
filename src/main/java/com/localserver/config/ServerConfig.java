@@ -24,10 +24,10 @@ import com.localserver.constants.Constants;
  */
 public class ServerConfig {
 
-    public String host = Constants.Server.DEFAULT_HOST;
+    public String bindAddress = Constants.Server.DEFAULT_HOST;
     public List<Integer> ports = new ArrayList<>();
-    public String serverName = ""; // used with the Host header
-    public boolean isDefault = false; // default server for its ports
+    public List<String> serverNames = new ArrayList<>(); // Host header aliases, lowercased
+    public boolean isDefault = false; // default server for its listening endpoints
     public long clientMaxBodySize = Constants.Server.DEFAULT_CLIENT_MAX_BODY_SIZE; // bytes (default 1 MiB)
     public Map<Integer, String> errorPages = new LinkedHashMap<>(); // 404 -> "error_pages/404.html"
     public List<RouteConfig> routes = new ArrayList<>();
