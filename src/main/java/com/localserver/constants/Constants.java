@@ -38,7 +38,7 @@ public final class Constants {
         public static final String METHOD_DELETE = "DELETE";
 
         public static final String DEFAULT_STATUS = "200 OK";
-        public static final String REDIRECT_STATUS = "301 Moved Permanently";
+        public static final int DEFAULT_REDIRECT_STATUS = 301;
         public static final String CREATED_STATUS = "201 Created";
         public static final String SERVER = "LocalServer";
 
@@ -85,6 +85,16 @@ public final class Constants {
         public static final String REASON_METHOD_NOT_ALLOWED = "Method Not Allowed";
         public static final String REASON_PAYLOAD_TOO_LARGE = "Payload Too Large";
         public static final String REASON_INTERNAL_SERVER_ERROR = "Internal Server Error";
+
+        private static final java.util.Map<Integer, String> REDIRECT_REASONS = java.util.Map.of(
+                301, "Moved Permanently",
+                302, "Found",
+                303, "See Other",
+                307, "Temporary Redirect",
+                308, "Permanent Redirect");
+
+        public static boolean isRedirect(int code) { return REDIRECT_REASONS.containsKey(code); }
+        public static String reasonFor(int code) { return REDIRECT_REASONS.getOrDefault(code, "Moved Permanently"); }
 
         private Status() {
         }
@@ -134,6 +144,9 @@ public final class Constants {
         public static final String KEY_PATH = "path";
         public static final String KEY_METHODS = "methods";
         public static final String KEY_REDIRECT = "redirect";
+        public static final String KEY_URL = "url";
+        public static final String KEY_STATUS = "status";
+        public static final int DEFAULT_REDIRECT_STATUS = 301;
         public static final String KEY_ROOT = "root";
         public static final String KEY_INDEX = "index";
         public static final String KEY_DIRECTORY_LISTING = "directoryListing";

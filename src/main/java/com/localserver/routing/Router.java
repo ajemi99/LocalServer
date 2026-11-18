@@ -64,7 +64,7 @@ public class Router {
 
         // 5. Redirect?
         if (route.redirect != null) {
-            return HttpResponse.redirect(route.redirect);
+            return HttpResponse.redirect(route.redirect.url, route.redirect.status);
         }
 
         // 6. Dispatch according to the HTTP method

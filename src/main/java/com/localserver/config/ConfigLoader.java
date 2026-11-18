@@ -7,9 +7,9 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.logging.Level;
 
 import com.localserver.constants.Constants;
+import com.localserver.logging.LoggingDebuger;
 import com.localserver.logging.LoggingManger;
 
 /**
@@ -32,22 +32,31 @@ public class ConfigLoader {
         String text = Files.readString(configPath);
 
         // Debug
-        LoggingManger.log(Level.WARNING, "com.localserver.config.ConfigLoader");
-        LoggingManger.info(text);
+        // LoggingManger.log(Level.WARNING, "com.localserver.config.ConfigLoader");
+        // LoggingManger.info(text);
         // Debug
 
         Object root = JsonParser.parse(text);
 
         Map<String, Object> rootMap = asMap(root, "root");
+
+        // Debug
+        LoggingDebuger.printPretty(rootMap);
+        // Debug
+
         Path configDir = configPath.getParent() != null
                 ? configPath.getParent()
                 : Path.of("").toAbsolutePath().normalize();
         Path baseDir = resolveBaseDir(rootMap, configDir);
 
+        // Debug
+        LoggingDebuger.printPretty("configDir:" + configDir + " baseDir:" + baseDir);
+        // Debug
+
         List<Object> serversJson = getList(rootMap, Constants.Config.KEY_SERVERS);
 
         if (serversJson == null || serversJson.isEmpty()) {
-            throw new IllegalArgumentException("'servers' must be a non-empty array");
+            throw new IllegalArgumentException("'servers' attribute is missing or 'servers' array is empty.");
         }
 
         List<ServerConfig> servers = new ArrayList<>();
@@ -159,7 +168,18 @@ public class ConfigLoader {
             }
         }
 
-        r.redirect = getString(m, Constants.Config.KEY_REDIRECT, null);
+        Map<String, Object> redirect = getMap(m, Constants.Config.KEY_REDIRECT);
+        if (redirect != null) {
+            String url = getString(redirect, Constants.Config.KEY_URL, null);
+            if (url == null || url.isEmpty()) {
+                throw new IllegalArgumentException(where + ".redirect.url is required");
+            }
+            long status = getLong(redirect, Constants.Config.KEY_STATUS, Constants.Config.DEFAULT_REDIRECT_STATUS);
+            if (!Constants.Status.isRedirect((int) status)) {
+                throw new IllegalArgumentException(where + ".redirect.status must be one of 301, 302, 303, 307, 308");
+            }
+            r.redirect = new RedirectConfig(url, (int) status);
+        }
         r.root = getString(m, Constants.Config.KEY_ROOT, null);
         r.index = getString(m, Constants.Config.KEY_INDEX, null);
         r.directoryListing = getBool(m, Constants.Config.KEY_DIRECTORY_LISTING, false);

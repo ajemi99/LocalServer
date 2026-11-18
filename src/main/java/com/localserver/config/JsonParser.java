@@ -261,6 +261,7 @@ public class JsonParser {
         }
 
         if (peek('.')) {
+            pos++;
             if (pos >= s.length() || !isDigit(s.charAt(pos))) {
                 throw error("Expected digit after decimal point found something else");
             }

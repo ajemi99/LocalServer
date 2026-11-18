@@ -42,6 +42,7 @@ test:
 clean:
 	$(MVN) clean 2>/dev/null || true
 	rm -rf target/classes target
+	rm -rf logs/*
 
 help:
 	@echo "Targets:"

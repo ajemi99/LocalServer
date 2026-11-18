@@ -32,7 +32,7 @@
         {
           "path": "/old",
           "methods": ["GET"],
-          "redirect": "/"
+          "redirect": { "url": "/", "status": 301 }
         },
         {
           "path": "/cgi-bin",

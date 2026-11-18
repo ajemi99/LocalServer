@@ -43,8 +43,13 @@ public class HttpResponse {
      * trailing-slash redirects.
      */
     public static HttpResponse redirect(String location) {
+        return redirect(location, Constants.Http.DEFAULT_REDIRECT_STATUS);
+    }
+
+    public static HttpResponse redirect(String location, int status) {
         String safe = escape(location);
-        HttpResponse response = new HttpResponse(Constants.Http.REDIRECT_STATUS, Constants.Http.CONTENT_TYPE_HTML,
+        String statusLine = status + " " + Constants.Status.reasonFor(status);
+        HttpResponse response = new HttpResponse(statusLine, Constants.Http.CONTENT_TYPE_HTML,
                 "<html><body>Moved to <a href=\"" + safe + "\">"
                         + safe + "</a></body></html>");
         response.extraHeaders = Constants.Http.HEADER_LOCATION + ": " + location + Constants.Http.CRLF;

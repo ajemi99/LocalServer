@@ -1,5 +1,6 @@
 package com.localserver.routing;
 
+import com.localserver.config.RedirectConfig;
 import com.localserver.config.RouteConfig;
 import com.localserver.config.ServerConfig;
 import com.localserver.http.HttpRequest;
@@ -55,7 +56,7 @@ class RouterTest {
         RouteConfig route = new RouteConfig();
         route.path = "/old";
         route.methods.add("GET");
-        route.redirect = "/";
+        route.redirect = new RedirectConfig("/", 301);
         server.routes.add(route);
 
         HttpResponse response = Router.route(request("GET", "/old"), 8080, List.of(server));
