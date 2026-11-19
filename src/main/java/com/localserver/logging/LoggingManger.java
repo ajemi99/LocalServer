@@ -17,7 +17,7 @@ public final class LoggingManger {
 
     public static boolean initialized = false;
 
-    public static synchronized void initialize() throws IOException {
+    public static void initialize() throws IOException {
         if (initialized) {
             return;
         }

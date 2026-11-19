@@ -1,6 +1,7 @@
 package com.localserver.server;
 
 import com.localserver.config.ServerConfig;
+import com.localserver.logging.LoggingManger;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
@@ -23,14 +24,16 @@ public final class Server {
 
     private final List<ServerConfig> servers;
     private final List<ServerSocketChannel> listeningChannels = new ArrayList<>();
+    private final Map<Endpoint, List<ServerConfig>> endpointsMap = new LinkedHashMap<>();
 
     private Selector selector;
     private EventLoop eventLoop;
+    private boolean started;
     private boolean running;
     private boolean closed;
 
     public Server(List<ServerConfig> servers) {
-        this.servers = servers;
+        this.servers = List.copyOf(servers);
     }
 
     /**
@@ -39,41 +42,48 @@ public final class Server {
      * opened.
      */
     public boolean start() throws IOException {
-        selector = Selector.open();
+        if (started) {
+            throw new IllegalStateException("Server has already been started");
+        }
+        started = true;
 
-        // port -> host (one channel per port)
-        Map<Integer, String> portToHost = new LinkedHashMap<>();
+        selector = Selector.open();
         for (ServerConfig sc : servers) {
             for (int port : sc.ports) {
-                portToHost.putIfAbsent(port, sc.bindAddress);
+                Endpoint epoint = new Endpoint(sc.bindAddress, port);
+
+                endpointsMap.computeIfAbsent(epoint, k -> new ArrayList<>()).add(sc);
             }
         }
 
         // One ServerSocketChannel per port
-        for (Map.Entry<Integer, String> e : portToHost.entrySet()) {
+        for (Endpoint epoint : endpointsMap.keySet()) {
             ServerSocketChannel server = null;
             try {
                 server = ServerSocketChannel.open();
                 server.setOption(StandardSocketOptions.SO_REUSEADDR, true);
-                server.bind(new InetSocketAddress(e.getValue(), e.getKey()));
+                server.bind(new InetSocketAddress(epoint.address(), epoint.port()));
                 server.configureBlocking(false);
-                server.register(selector, SelectionKey.OP_ACCEPT);
+                server.register(selector, SelectionKey.OP_ACCEPT, endpointsMap.get(epoint));
                 listeningChannels.add(server);
-                System.out.println("Listening on " + e.getValue() + ":" + e.getKey());
+                LoggingManger.info("Listening on " + epoint.address() + ":" + epoint.port());
             } catch (IOException ex) {
-                System.err.println("Cannot bind port " + e.getKey() + ": " + ex.getMessage());
+                LoggingManger.severe("Cannot bind port " + epoint.port() + ": " + ex.getMessage(), ex);
                 if (server != null) {
                     try {
                         server.close();
                     } catch (IOException closeError) {
-                        System.err.println("Cannot close port " + e.getKey() + ": " + closeError.getMessage());
+                        LoggingManger.severe(
+                                "Cannot close " + epoint.address() + ":" + epoint.port() + ": "
+                                        + closeError.getMessage(),
+                                closeError);
                     }
                 }
             }
         }
 
         if (selector.keys().isEmpty()) {
-            System.err.println("No port could be opened. Exiting.");
+            LoggingManger.severe("No port could be opened. Exiting.");
             closeAll();
             return false;
         }
@@ -106,14 +116,10 @@ public final class Server {
             current.wakeup();
         }
 
-        closeAll();
+        // closeAll();
     }
 
-    public boolean isRunning() {
-        return running;
-    }
-
-    private synchronized void closeAll() {
+    private void closeAll() {
         if (closed) {
             return;
         }
@@ -123,7 +129,7 @@ public final class Server {
             try {
                 channel.close();
             } catch (IOException e) {
-                System.err.println("Cannot close listening channel: " + e.getMessage());
+                LoggingManger.severe("Cannot close listening channel: " + e.getMessage(), e);
             }
         }
         listeningChannels.clear();
@@ -138,7 +144,7 @@ public final class Server {
                 try {
                     key.channel().close();
                 } catch (IOException e) {
-                    System.err.println("Cannot close channel: " + e.getMessage());
+                    LoggingManger.severe("Cannot close channel: " + e.getMessage(), e);
                 }
                 key.cancel();
             }
@@ -149,7 +155,11 @@ public final class Server {
         try {
             current.close();
         } catch (IOException e) {
-            System.err.println("Cannot close selector: " + e.getMessage());
+            LoggingManger.severe("Cannot close selector: " + e.getMessage(), e);
         }
+    }
+
+    public boolean isRunning() {
+        return running;
     }
 }
