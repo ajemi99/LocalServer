@@ -31,16 +31,13 @@ public final class Main {
 
             ServerRuntime runtime = new ServerRuntime(command.configPath());
 
-
             // running the server
-            try {
-                runtime.start();
-            } finally {
-                LoggingManger.shutdown();
-            }
+            runtime.start();
 
         } catch (Exception e) {
             LoggingManger.severe("LocalServer encountered an error", e);
+        } finally {
+            LoggingManger.shutdown();
         }
     }
 }

@@ -5,6 +5,7 @@ import com.localserver.http.ErrorPages;
 import com.localserver.http.HttpRequest;
 import com.localserver.http.HttpResponse;
 import com.localserver.constants.Constants;
+import com.localserver.logging.LoggingManger;
 
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -109,7 +110,7 @@ public final class CGIHandler {
             return response;
 
         } catch (Exception e) {
-            e.printStackTrace();
+            LoggingManger.severe("CGI execution failed for " + scriptPath, e);
             return ErrorPages.get(500);
         }
     }

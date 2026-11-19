@@ -2,6 +2,7 @@ package com.localserver.http;
 
 import com.localserver.config.ServerConfig;
 import com.localserver.constants.Constants;
+import com.localserver.logging.LoggingManger;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -39,7 +40,8 @@ public class ErrorPages {
                             Files.readAllBytes(path));
                 }
             } catch (Exception e) {
-                System.err.println("Cannot load error page " + code + " (" + file + "): " + e.getMessage());
+                LoggingManger.warning(
+                        "Cannot load error page " + code + " (" + file + "): " + e.getMessage(), e);
             }
         }
         return fallback;

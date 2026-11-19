@@ -7,6 +7,7 @@ import com.localserver.http.ErrorPages;
 import com.localserver.http.HttpParser;
 import com.localserver.http.HttpRequest;
 import com.localserver.http.HttpResponse;
+import com.localserver.logging.LoggingManger;
 import com.localserver.routing.Router;
 
 import java.io.IOException;
@@ -86,7 +87,7 @@ public final class EventLoop {
                             SelectionKey clientKey = client.register(selector, SelectionKey.OP_READ);
                             clientKey.attach(connection);
 
-                            System.out.println("Client connected on port " + connection.localPort
+                            LoggingManger.info("Client connected on port " + connection.localPort
                                     + ": " + client.getRemoteAddress());
                         }
 
@@ -128,7 +129,7 @@ public final class EventLoop {
                                 }
 
                                 if (connection.headerEnd == -1) {
-                                    System.out.println("Request not complete yet...");
+                                    LoggingManger.fine("Request not complete yet...");
                                     continue;
                                 }
                             }
@@ -189,7 +190,7 @@ public final class EventLoop {
                                         continue;
                                     }
                                     if (status == ChunkedDecoder.Status.INCOMPLETE) {
-                                        System.out.println("Chunked body not complete yet...");
+                                        LoggingManger.fine("Chunked body not complete yet...");
                                         continue;
                                     }
 
@@ -200,7 +201,7 @@ public final class EventLoop {
                                 } else {
                                     int available = connection.length - bodyStart;
                                     if (available < connection.contentLength) {
-                                        System.out.println("Body not complete yet... ("
+                                        LoggingManger.fine("Body not complete yet... ("
                                                 + available + "/" + connection.contentLength + ")");
                                         continue;
                                     }
@@ -208,14 +209,15 @@ public final class EventLoop {
                                             connection.data, bodyStart, bodyStart + connection.contentLength);
                                 }
 
-                                System.out.println(httpRequest.method + " " + httpRequest.path);
+                                LoggingManger.fine(httpRequest.method + " " + httpRequest.path);
 
                                 httpResponse = Router.route(httpRequest, connection.localPort, servers);
 
                             } catch (BadRequestException e) {
+                                LoggingManger.warning("Bad request: " + e.getMessage());
                                 httpResponse = ErrorPages.get(400);
                             } catch (Exception e) {
-                                e.printStackTrace();
+                                LoggingManger.severe("Error while handling request", e);
                                 httpResponse = ErrorPages.get(500);
                             }
 
@@ -246,11 +248,12 @@ public final class EventLoop {
                         }
 
                     } catch (Exception e) {
-                        System.out.println("Client error: " + e.getMessage());
+                        LoggingManger.warning("Client error: " + e.getMessage(), e);
                         try {
                             key.channel().close();
                         } catch (IOException closeError) {
-                            System.err.println("Cannot close client channel: " + closeError.getMessage());
+                            LoggingManger.warning(
+                                    "Cannot close client channel: " + closeError.getMessage(), closeError);
                         }
                         key.cancel();
                     }
@@ -259,10 +262,10 @@ public final class EventLoop {
             } catch (ClosedSelectorException e) {
                 // Normal during shutdown: Server.stop() closes the selector.
                 if (running) {
-                    System.err.println("Loop error: " + e);
+                    LoggingManger.warning("Loop error: " + e, e);
                 }
             } catch (Exception e) {
-                System.err.println("Loop error: " + e);
+                LoggingManger.severe("Loop error: " + e.getMessage(), e);
             }
         }
     }
