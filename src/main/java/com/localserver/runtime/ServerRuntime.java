@@ -15,7 +15,7 @@ public final class ServerRuntime {
 
     private final String configPath;
     private final List<ServerConfig> servers;
-    private volatile Server server;
+    private Server server;
 
     public ServerRuntime(String configPath) throws IOException {
         this.configPath = configPath;

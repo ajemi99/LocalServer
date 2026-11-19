@@ -34,7 +34,7 @@ public final class EventLoop {
 
     private final Selector selector;
     private final List<ServerConfig> servers;
-    private volatile boolean running = true;
+    private boolean running = true;
 
     public EventLoop(Selector selector, List<ServerConfig> servers) {
         this.selector = selector;

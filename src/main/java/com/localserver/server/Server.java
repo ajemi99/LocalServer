@@ -26,7 +26,7 @@ public final class Server {
 
     private Selector selector;
     private EventLoop eventLoop;
-    private volatile boolean running;
+    private boolean running;
     private boolean closed;
 
     public Server(List<ServerConfig> servers) {
