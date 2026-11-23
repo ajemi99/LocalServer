@@ -47,7 +47,6 @@ public final class Server {
         }
         started = true;
 
-        selector = Selector.open();
         for (ServerConfig sc : servers) {
             for (int port : sc.ports) {
                 Endpoint epoint = new Endpoint(sc.bindAddress, port);
@@ -56,6 +55,8 @@ public final class Server {
             }
         }
 
+        // create an epoll
+        selector = Selector.open();
         // One ServerSocketChannel per port
         for (Endpoint epoint : endpointsMap.keySet()) {
             ServerSocketChannel server = null;
