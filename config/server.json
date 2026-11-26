@@ -44,7 +44,8 @@
     },
     {
       "bindAddress": "127.0.0.1",
-      "ports": [9090],
+      "ports": [8080],
+      "serverNames": ["example"],
       "clientMaxBodySize": 2048,
       "routes": [
         { "path": "/","methods": ["GET", "POST"], "root": "www2", "index": "index.html" }

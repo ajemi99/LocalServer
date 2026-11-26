@@ -101,8 +101,13 @@ public final class Constants {
                 BAD_REQUEST, FORBIDDEN, NOT_FOUND, METHOD_NOT_ALLOWED, PAYLOAD_TOO_LARGE,
                 INTERNAL_SERVER_ERROR);
 
-        public static boolean isRedirect(int code) { return REDIRECT_REASONS.containsKey(code); }
-        public static String reasonFor(int code) { return REDIRECT_REASONS.getOrDefault(code, "Moved Permanently"); }
+        public static boolean isRedirect(int code) {
+            return REDIRECT_REASONS.containsKey(code);
+        }
+
+        public static String reasonFor(int code) {
+            return REDIRECT_REASONS.getOrDefault(code, "Moved Permanently");
+        }
 
         private Status() {
         }
@@ -124,7 +129,7 @@ public final class Constants {
         public static final int CONNECTION_SHRINK_ABOVE = 64 * 1024;
 
         public static final int MAX_HEADER_SIZE = 16 * 1024;
-        public static final int SELECTOR_TIMEOUT_MS = 1000;
+        public static final int SELECTOR_TIMEOUT_MS = 10 * 1000;
 
         private Server() {
         }

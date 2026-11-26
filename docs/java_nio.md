@@ -73,7 +73,7 @@ register the ServerSocketChannel to the selector and notify when the socket is r
 epoll_ctl(epfd, EPOLL_CTL_ADD, server_fd, &event);
 ```
 
-### Select
+## Select
 
 ```java
 selector.select(SELECTOR_TIMEOUT_MS)
@@ -117,4 +117,103 @@ selector.select() returns
       |
       v
 Java event loop processes the event
+```
+
+## ByteBuffer
+
+this is a class extends **Buffer** that holds the connection readed of written bytes instead of using a byte[] and its used because SocketChannel.read() and SocketChannel.write() operates on buffers
+
+### capacity,limit,position
+
+intially the buffer has
+
+```java
+capacity = 1024
+limit = 1024
+position = 0
+```
+
+client send data with length 10 trought tcp socket the buffer now has:
+
+```java
+int bytesRead = client.read(buffer);
+```
+
+```java
+capacity = 1024
+limit = 1024
+position = 10
+```
+
+```java
+buffer.flip();
+```
+
+```java
+capacity = 1024
+limit = 10
+position = 0
+```
+
+consume the buffer and reset
+
+```java
+SocketChannel.append(buffer);
+buffer.clean();
+```
+
+```java
+capacity = 1024
+limit = 1024
+position = 0
+```
+
+## SelectionKey
+
+this key is created after a socket registration to the selector
+
+```java
+SelectioKey server_key = ServerSocketChannel.register(sel, ops, att);
+SelectioKey client_key = SocketChannel.register(sel, ops, att);
+```
+
+the key is considred selected only if its operation is ready and we use this methods to monitor the listening/connected Tcp sockets:
+
+| Method | Purpose |
+|---|---|
+| `channel()` | Returns the channel associated with the key. |
+| `selector()` | Returns the selector associated with the key. |
+| `interestOps()` | Returns the operations you want to monitor. |
+| `interestOps(int ops)` | Changes the operations you want to monitor. |
+| `readyOps()` | Returns the operations currently reported as ready. |
+| `isAcceptable()` | Checks whether accepting a connection is ready. |
+| `isReadable()` | Checks whether reading is ready. |
+| `isWritable()` | Checks whether writing is ready. |
+| `isConnectable()` | Checks whether a non-blocking connection can be completed. |
+| `attach(Object obj)` | Associates application data with the key. |
+| `attachment()` | Retrieves the associated application data. |
+| `isValid()` | Checks whether the registration is still valid. |
+| `cancel()` | Cancels the channel's registration with the selector. |
+
+## SocketChannel
+
+This is a an object that represent an os-backed tcp connected socket resulted by an accept from the listening socket (ServerSocketChannel)
+
+```java
+ServerSocketChannel serverChannel = (ServerSocketChannel) key.channel();
+
+SocketChannel client = serverChannel.accept();
+```
+
+the equivlant is:
+
+```c
+struct sockaddr_in client_addr;
+socklen_t client_len = sizeof(client_addr);
+
+int client_fd = accept(
+    server_fd,
+    (struct sockaddr *)&client_addr,
+    &client_len
+);
 ```
