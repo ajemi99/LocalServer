@@ -1,6 +1,7 @@
 package com.localserver.server;
 
 import com.localserver.config.ServerConfig;
+import com.localserver.http.session.SessionManager;
 import com.localserver.logging.LoggingManger;
 
 import java.io.IOException;
@@ -20,15 +21,20 @@ public final class EventLoop {
 
     private final Selector selector;
     private final List<ServerConfig> servers;
+    private final SessionManager sessionManager;
+    private final HttpRequestProcessor requestProcessor;
     private boolean running = true;
 
     public EventLoop(Selector selector, List<ServerConfig> servers) {
         this.selector = selector;
         this.servers = servers;
+        this.sessionManager = new SessionManager();
+        this.requestProcessor = new HttpRequestProcessor(sessionManager);
     }
 
     public void stop() {
         running = false;
+        sessionManager.close();
     }
 
     private void acceptClient(SelectionKey key) throws IOException {
@@ -51,7 +57,7 @@ public final class EventLoop {
 
     private void readClient(SelectionKey key) throws IOException {
         if (key.isReadable()) {
-            HttpRequestProcessor.process(key, servers);
+            requestProcessor.process(key, servers);
         }
     }
 

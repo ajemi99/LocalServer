@@ -3,10 +3,13 @@ package com.localserver.server;
 import com.localserver.config.ServerConfig;
 import com.localserver.http.BadRequestException;
 import com.localserver.http.ChunkedDecoder;
+import com.localserver.http.Cookie;
 import com.localserver.http.ErrorPages;
 import com.localserver.http.HttpParser;
 import com.localserver.http.HttpRequest;
 import com.localserver.http.HttpResponse;
+import com.localserver.http.session.Session;
+import com.localserver.http.session.SessionManager;
 import com.localserver.logging.LoggingManger;
 import com.localserver.routing.Router;
 
@@ -23,7 +26,14 @@ public class HttpRequestProcessor {
 
     private static final int MAX_HEADER_SIZE = Constants.Server.MAX_HEADER_SIZE;
 
-    public static void process(SelectionKey key, List<ServerConfig> servers) throws IOException {
+    private final SessionManager sessionManager;
+
+    public HttpRequestProcessor(SessionManager sessionManager) {
+        this.sessionManager = sessionManager;
+    }
+
+    public void process(SelectionKey key, List<ServerConfig> servers) throws IOException {
+        sessionManager.cleanupExpiredSessions();
         SocketChannel client = (SocketChannel) key.channel();
         Connection connection = (Connection) key.attachment();
         ByteBuffer buffer = connection.requestBuffer;
@@ -132,9 +142,17 @@ public class HttpRequestProcessor {
                         connection.data, bodyStart, bodyStart + connection.contentLength);
             }
 
+            // Resolve session before routing
+            resolveSession(httpRequest);
+
             LoggingManger.fine(httpRequest.method + " " + httpRequest.path);
 
             httpResponse = Router.route(httpRequest, connection.localPort, servers);
+
+            // Add session cookie if new session was created
+            if (httpRequest.session != null && httpRequest.session.isNew()) {
+                httpResponse.addCookie(sessionManager.createSessionCookie(httpRequest.session));
+            }
 
         } catch (BadRequestException e) {
             LoggingManger.warning("Bad request: " + e.getMessage());
@@ -147,6 +165,23 @@ public class HttpRequestProcessor {
         connection.responseBuffer = ByteBuffer.wrap(httpResponse.build());
         connection.reset();
         key.interestOps(SelectionKey.OP_WRITE);
+    }
+
+    private void resolveSession(HttpRequest request) {
+        String sessionCookieName = sessionManager.getSessionCookieName();
+        Cookie sessionCookie = request.cookies != null ? request.cookies.get(sessionCookieName) : null;
+        
+        if (sessionCookie != null) {
+            String sessionId = sessionCookie.getValue();
+            Session session = sessionManager.getSession(sessionId);
+            if (session != null) {
+                request.session = session;
+                return;
+            }
+        }
+        
+        // Create new session
+        request.session = sessionManager.createSession();
     }
 
     private static void closeClient(SelectionKey key, SocketChannel client) throws IOException {

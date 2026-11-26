@@ -76,6 +76,18 @@ public class HttpParser {
         request.version = version;
         request.headers = parseHeaders(rawRequest);
 
+        // Parse cookies from Cookie header
+        String cookieHeader = request.headers.get(Constants.Http.HEADER_COOKIE);
+        if (cookieHeader != null) {
+            try {
+                request.cookies = CookieParser.parseCookieHeader(cookieHeader);
+            } catch (IllegalArgumentException e) {
+                throw new BadRequestException("Malformed Cookie header");
+            }
+        } else {
+            request.cookies = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
+        }
+
         // HTTP/1.1 kayt-lb header Host
         if (version.equals(Constants.Http.VERSION_1_1) && !request.headers.containsKey(Constants.Http.HEADER_HOST)) {
             throw new BadRequestException("Missing Host header");
@@ -83,6 +95,7 @@ public class HttpParser {
 
         return request;
     }
+    
     public static String getRequestLine(String rawRequest) {
         
         int endOfLine = rawRequest.indexOf(Constants.Http.CRLF);

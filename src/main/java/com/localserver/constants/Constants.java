@@ -49,7 +49,9 @@ public final class Constants {
         public static final String HEADER_HOST = "Host";
         public static final String HEADER_LOCATION = "Location";
         public static final String HEADER_ALLOW = "Allow";
+        public static final String HEADER_SET_COOKIE = "Set-Cookie";
         public static final String HEADER_CONNECTION = "Connection";
+        public static final String HEADER_COOKIE = "Cookie";
 
         public static final String CONTENT_TYPE_HTML = "text/html; charset=UTF-8";
         public static final String CONTENT_TYPE_TEXT = "text/plain; charset=UTF-8";

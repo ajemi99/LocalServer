@@ -1,6 +1,8 @@
 package com.localserver.http;
 
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.List;
 
 import com.localserver.constants.Constants;
 
@@ -10,6 +12,9 @@ public class HttpResponse {
     public String contentType;
     public byte[] body;
     public String extraHeaders = "";      // ex: "Allow: GET\r\n" or "Location: /\r\n"
+
+    // Set-Cookie headers are stored separately to allow multiple
+    private final List<String> setCookieHeaders = new ArrayList<>();
 
     // For text (ErrorPages, etc.)
     public HttpResponse(String status, String contentType, String body) {
@@ -23,15 +28,31 @@ public class HttpResponse {
         this.body = body;
     }
 
+    public void addCookie(Cookie cookie) {
+        if (cookie != null) {
+            setCookieHeaders.add(cookie.toHeader());
+        }
+    }
+
+    public List<String> getSetCookieHeaders() {
+        return setCookieHeaders;
+    }
+
     // Builds the complete HTTP response: text headers + raw body bytes.
     public byte[] build() {
-        String head = Constants.Http.VERSION_1_1 + " " + status + Constants.Http.CRLF
-                + Constants.Http.HEADER_CONTENT_TYPE + ": " + contentType + Constants.Http.CRLF
-                + Constants.Http.HEADER_CONTENT_LENGTH + ": " + body.length + Constants.Http.CRLF
-                + extraHeaders
-                + Constants.Http.CRLF;
+        StringBuilder head = new StringBuilder();
+        head.append(Constants.Http.VERSION_1_1).append(' ').append(status).append(Constants.Http.CRLF);
+        head.append(Constants.Http.HEADER_CONTENT_TYPE).append(": ").append(contentType).append(Constants.Http.CRLF);
+        head.append(Constants.Http.HEADER_CONTENT_LENGTH).append(": ").append(body.length).append(Constants.Http.CRLF);
+        head.append(extraHeaders);
+        
+        for (String cookieHeader : setCookieHeaders) {
+            head.append(Constants.Http.HEADER_SET_COOKIE).append(": ").append(cookieHeader).append(Constants.Http.CRLF);
+        }
+        
+        head.append(Constants.Http.CRLF);
 
-        byte[] headBytes = head.getBytes(StandardCharsets.UTF_8);
+        byte[] headBytes = head.toString().getBytes(StandardCharsets.UTF_8);
         byte[] all = new byte[headBytes.length + body.length];
         System.arraycopy(headBytes, 0, all, 0, headBytes.length);
         System.arraycopy(body, 0, all, headBytes.length, body.length);
@@ -57,7 +78,7 @@ public class HttpResponse {
     }
 
     private static String escape(String s) {
-        return s.replace("&", "&amp;").replace("<", "&lt;")
-                .replace(">", "&gt;").replace("\"", "&quot;");
+        return s.replace("&", "&").replace("<", "<")
+                .replace(">", ">").replace("\"", "\u0026quot;");
     }
 }
